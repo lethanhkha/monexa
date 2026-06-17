@@ -1,0 +1,131 @@
+.page {
+  max-width: 900px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-6);
+}
+
+.pageTitle {
+  font-size: var(--text-headline);
+  font-weight: var(--weight-extrabold);
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.searchBox {
+  flex: 1;
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.searchInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--space-4) 0 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.searchInput:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  outline: none;
+}
+
+.filterBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.filterBtn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.txList {
+  display: flex;
+  flex-direction: column;
+}
+
+.txItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition-fast);
+}
+
+.txItem:last-child {
+  border-bottom: none;
+}
+
+.txDot {
+  flex-shrink: 0;
+}
+
+.dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dotIncome { background: var(--success); }
+.dotExpense { background: var(--error); }
+
+.txInfo {
+  flex: 1;
+}
+
+.txCategory {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+
+.txNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.txAmount {
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.income { color: var(--success); }
+.expense { color: var(--error); }

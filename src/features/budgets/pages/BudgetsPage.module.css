@@ -1,0 +1,88 @@
+.page {
+  max-width: 1100px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-8);
+}
+
+.pageTitle {
+  font-size: var(--text-headline);
+  font-weight: var(--weight-extrabold);
+  margin-bottom: var(--space-1);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: var(--text-body-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-5);
+}
+
+.budgetCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.categoryDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.categoryName {
+  font-size: 16px;
+  font-weight: 700;
+  flex: 1;
+  margin: 0;
+}
+
+.progressTrack {
+  height: 8px;
+  background: var(--neutral-light);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.6s ease;
+}
+
+.amounts {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.spent {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.remaining {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.limit {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}

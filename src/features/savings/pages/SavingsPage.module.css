@@ -1,0 +1,98 @@
+.page {
+  max-width: 1100px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-8);
+}
+
+.pageTitle {
+  font-size: var(--text-headline);
+  font-weight: var(--weight-extrabold);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-5);
+}
+
+.goalCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.goalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.goalIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.goalName {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.amounts {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.current {
+  font-family: var(--font-headline);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-bold);
+}
+
+.target {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.progressTrack {
+  height: 8px;
+  background: var(--neutral-light);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.6s ease;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pct {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.daysLeft {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}

@@ -1,0 +1,179 @@
+.page {
+  max-width: 1100px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--space-8);
+}
+
+.pageTitle {
+  font-size: var(--text-headline);
+  font-weight: var(--weight-extrabold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.greeting {
+  color: var(--text-secondary);
+  font-size: var(--text-body-sm);
+}
+
+/* Balance Grid */
+.balanceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
+}
+
+.balanceCard {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border-color: transparent;
+  color: white;
+}
+
+.balanceCard h3 {
+  color: rgba(255,255,255,0.85);
+}
+
+.balanceAmount {
+  font-family: var(--font-headline);
+  font-size: var(--text-display);
+  font-weight: var(--weight-extrabold);
+  color: white;
+}
+
+.incomeCard .incomeAmount {
+  font-family: var(--font-headline);
+  font-size: var(--text-headline);
+  font-weight: var(--weight-bold);
+  color: var(--success);
+}
+
+.expenseCard .expenseAmount {
+  font-family: var(--font-headline);
+  font-size: var(--text-headline);
+  font-weight: var(--weight-bold);
+  color: var(--error);
+}
+
+/* Content Grid */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: var(--space-5);
+}
+
+/* Transactions */
+.transactionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.transactionItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.transactionItem:last-child {
+  border-bottom: none;
+}
+
+.txLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.txDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotIncome { background: var(--success); }
+.dotExpense { background: var(--error); }
+
+.txCategory {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.txNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.txAmount {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.amountIncome { color: var(--success); }
+.amountExpense { color: var(--error); }
+
+/* Budgets */
+.budgetList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.budgetItem {}
+
+.budgetHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.budgetCategory {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.progressTrack {
+  height: 6px;
+  background: var(--neutral-light);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-1);
+}
+
+.progressBar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.5s ease;
+}
+
+.progressOk { background: var(--success); }
+.progressWarn { background: var(--warning); }
+.progressOver { background: var(--error); }
+
+.budgetAmounts {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .balanceGrid {
+    grid-template-columns: 1fr;
+  }
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}

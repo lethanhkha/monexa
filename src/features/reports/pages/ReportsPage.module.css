@@ -1,0 +1,166 @@
+.page {
+  max-width: 1100px;
+}
+
+.header {
+  margin-bottom: var(--space-8);
+}
+
+.pageTitle {
+  font-size: var(--text-headline);
+  font-weight: var(--weight-extrabold);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+
+.chartCard {
+  min-height: 400px;
+}
+
+/* Pie Chart */
+.pieChart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.piePlaceholder {
+  position: relative;
+  width: 200px;
+  height: 200px;
+}
+
+.pieSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.pieCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pieTotal {
+  font-family: var(--font-headline);
+  font-size: 20px;
+  font-weight: var(--weight-extrabold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pieLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.legend {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legendLabel {
+  flex: 1;
+  color: var(--text-secondary);
+}
+
+.legendPct {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Bar Chart */
+.barChart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  height: 220px;
+  padding-top: var(--space-4);
+}
+
+.barGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.bars {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  height: 180px;
+  width: 100%;
+  justify-content: center;
+}
+
+.barIncome {
+  width: 16px;
+  background: var(--success);
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  transition: height 0.5s ease;
+}
+
+.barExpense {
+  width: 16px;
+  background: var(--error);
+  border-radius: 4px 4px 0 0;
+  min-height: 4px;
+  transition: height 0.5s ease;
+}
+
+.barLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.barLegend {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.barLegend span {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
