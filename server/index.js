@@ -13,12 +13,13 @@ config({ path: resolve(__dirname, '..', '.env') })
 const app = express()
 const PORT = process.env.PORT || 3001
 
-// ── Validate required env vars on startup ────────────────────────────────────
-const requiredKeys = ['GROQ_API_KEY', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']
+// ── Validate required env vars on startup ─────────────────────────────────────
+// Match keys exactly as they appear in .env (VITE_ prefix)
+const requiredKeys = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'VITE_GROQ_API_KEY']
 const missingKeys = requiredKeys.filter(k => !process.env[k])
 if (missingKeys.length > 0) {
   console.error('❌ Missing required env vars:', missingKeys.join(', '))
-  console.error('   Copy .env.example to .env and fill in the values.')
+  console.error('   Check your .env file at the project root.')
   process.exit(1)
 }
 
@@ -26,16 +27,15 @@ if (missingKeys.length > 0) {
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:5173' }))
 app.use(express.json())
 
-// ── Supabase Client (browser-side key for chat history writes) ───────────────
-// We use the anon key here — RLS policies handle authorization
+// ── Supabase Client ────────────────────────────────────────────────────────────
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.VITE_SUPABASE_ANON_KEY
 )
 
 // ── Groq Client ────────────────────────────────────────────────────────────────
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-console.log('✅ Groq API key loaded:', process.env.GROQ_API_KEY.slice(0, 8) + '...')
+const groq = new Groq({ apiKey: process.env.VITE_GROQ_API_KEY })
+console.log('✅ Groq API key loaded:', process.env.VITE_GROQ_API_KEY.slice(0, 8) + '...')
 
 // ── System Prompt ────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `Bạn là trợ lý AI của ứng dụng quản lý tài chính Monexa, bằng tiếng Việt.
@@ -74,7 +74,6 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'user_id is required' })
   }
 
-  // Build Groq messages
   const groqMessages = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...conversation_history.slice(-10).map((msg) => ({
@@ -137,7 +136,7 @@ app.post('/api/chat', async (req, res) => {
 app.get('/health', (_, res) => {
   res.json({
     status: 'ok',
-    groq_key_loaded: !!process.env.GROQ_API_KEY,
+    groq_key_loaded: !!process.env.VITE_GROQ_API_KEY,
     supabase_url: !!process.env.VITE_SUPABASE_URL,
     timestamp: new Date().toISOString(),
   })
