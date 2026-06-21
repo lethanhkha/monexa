@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "import:figma": "node scripts/import-figma.js"
+    "import:figma": "node scripts/import-figma.js",
+    "server": "node server/index.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",
@@ -37,6 +39,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^10.0.3",
     "dotenv": "^16.6.1",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
