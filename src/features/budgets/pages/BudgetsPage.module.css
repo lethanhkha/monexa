@@ -1,16 +1,25 @@
+/* =============================================
+   BUDGETS PAGE
+   ============================================= */
+
 .page {
-  max-width: 1100px;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
+/* --- Header --- */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--space-8);
+  gap: var(--space-4);
+  flex-wrap: wrap;
 }
 
 .pageTitle {
-  font-size: var(--text-headline);
+  font-size: clamp(1.3rem, 3vw, var(--text-headline));
   font-weight: var(--weight-extrabold);
   margin-bottom: var(--space-1);
 }
@@ -18,29 +27,147 @@
 .subtitle {
   color: var(--text-secondary);
   font-size: var(--text-body-sm);
+  margin: 0;
 }
 
+/* --- Overall Summary Card --- */
+.overallCard {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-5);
+  box-shadow: var(--shadow-subtle);
+}
+
+.overallLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.overallLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.overallAmount {
+  font-family: var(--font-headline);
+  font-size: var(--text-display);
+  font-weight: var(--weight-extrabold);
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.overallSpent {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.overallPct {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--neutral-light);
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Circular Progress */
+.overallRight {}
+
+.circularProgress {
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+
+.circularSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.circularPath {
+  transition: stroke-dasharray 1s ease;
+}
+
+.circularCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.circularCenter span {
+  font-family: var(--font-headline);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+/* --- Budget Grid --- */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-5);
 }
 
+/* --- Budget Card --- */
 .budgetCard {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  border: 1.5px solid var(--border);
+  transition:
+    box-shadow var(--transition-base),
+    transform var(--transition-base),
+    border-color var(--transition-base);
+}
+
+.budgetCard:hover {
+  box-shadow: var(--shadow-medium);
+  transform: translateY(-2px);
+  border-color: var(--border-hover);
 }
 
 .cardTop {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
 }
 
+.categoryInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .categoryDot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -48,12 +175,51 @@
 .categoryName {
   font-size: 16px;
   font-weight: 700;
-  flex: 1;
   margin: 0;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardActions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.budgetCard:hover .cardActions {
+  opacity: 1;
+}
+
+.iconBtn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--neutral-light);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.iconBtn:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.iconBtn.danger:hover {
+  background: var(--error-light);
+  color: var(--error);
 }
 
 .progressTrack {
-  height: 8px;
+  height: 10px;
   background: var(--neutral-light);
   border-radius: var(--radius-full);
   overflow: hidden;
@@ -62,27 +228,225 @@
 .progressBar {
   height: 100%;
   border-radius: var(--radius-full);
-  transition: width 0.6s ease;
+  animation: progressFill 0.8s ease forwards;
 }
 
 .amounts {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+
+.amountLeft,
+.amountRight {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.amountRight {
+  align-items: flex-end;
 }
 
 .spent {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-family: var(--font-headline);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.spentLabel {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .remaining {
-  font-size: 13px;
+  font-family: var(--font-headline);
+  font-size: 15px;
   font-weight: 700;
 }
 
-.limit {
+.remainingLabel {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.limitBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.limitLabel {
   font-size: 12px;
   color: var(--text-muted);
+  font-weight: 500;
+}
+
+.limitValue {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Alert Banner */
+.alertBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.alertOver {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+.alertWarn {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+/* --- Add Card --- */
+.addCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 200px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition:
+    border-color var(--transition-base),
+    background var(--transition-base),
+    color var(--transition-base);
+  padding: var(--space-5);
+}
+
+.addCard:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.addCardIcon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  border: 2px dashed currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addCardLabel {
+  font-size: 14px;
+  font-weight: 600;
   margin: 0;
+}
+
+/* --- Form --- */
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.formLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.categoryGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.catChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+  font-family: var(--font-body);
+}
+
+.catChip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.catChipActive {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.catDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.fieldError {
+  font-size: 12px;
+  color: var(--error);
+  margin: 0;
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+
+@media (max-width: 1023px) {
+  .overallCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+
+  .overallRight {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 639px) {
+  .header {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .overallAmount {
+    font-size: var(--text-headline);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .cardActions {
+    opacity: 1;
+  }
 }

@@ -15,8 +15,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner" />
+      <div className="loading-screen-old">
+        <div className="loading-spinner-old" />
       </div>
     )
   }
@@ -33,8 +33,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner" />
+      <div className="loading-screen-old">
+        <div className="loading-spinner-old" />
       </div>
     )
   }

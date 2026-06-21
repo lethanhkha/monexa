@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, ArrowLeftRight, PiggyBank, TrendingUp, BarChart3, LogOut, Menu } from 'lucide-react'
+import { LayoutDashboard, Wallet, ArrowLeftRight, PiggyBank, TrendingUp, BarChart3, LogOut, Menu, X, MessageCircle } from 'lucide-react'
 import { useAuth } from '@/features/auth/hooks/useAuth'
+import { Chatbot } from '@/features/chat/components/Chatbot'
 import styles from './Layout.module.css'
 
 const navItems = [
@@ -16,12 +17,13 @@ const navItems = [
 export function Layout() {
   const { signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [chatOpen, setChatOpen] = useState(false)
 
   return (
     <div className={styles.layout}>
       {/* Mobile Header */}
       <header className={styles.mobileHeader}>
-        <button className={styles.menuBtn} onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <button className={styles.menuBtn} onClick={() => setSidebarOpen(!sidebarOpen)} aria-label="Menu">
           <Menu size={20} />
         </button>
         <span className={styles.mobileLogo}>Monexa</span>
@@ -65,6 +67,22 @@ export function Layout() {
       <main className={styles.main}>
         <Outlet />
       </main>
+
+      {/* AI Chatbot FAB */}
+      <button
+        className={`${styles.chatFab} ${chatOpen ? styles.chatFabOpen : ''}`}
+        onClick={() => setChatOpen(o => !o)}
+        aria-label="AI Chatbot"
+      >
+        {chatOpen ? <X size={22} /> : <MessageCircle size={22} />}
+      </button>
+
+      {/* Chatbot Panel */}
+      {chatOpen && (
+        <div className={`${styles.chatPanel} animate-scale-in`}>
+          <Chatbot />
+        </div>
+      )}
     </div>
   )
 }

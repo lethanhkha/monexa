@@ -113,6 +113,65 @@
   --z-toast: 50;
 }
 
+/* --- Responsive Breakpoints (min-width) ---
+   sm:  640px  — Mobile landscape / small tablet
+   md:  768px  — Tablet / mobile landscape
+   lg:  1024px — Small desktop / tablet landscape
+   xl:  1280px — Desktop
+*/
+
+/* =============================================
+   KEYFRAMES
+   ============================================= */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes progressFill {
+  from { width: 0; }
+}
+
 /* --- Reset & Base --- */
 *,
 *::before,
@@ -187,8 +246,8 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
-/* --- Loading Screen --- */
-.loading-screen {
+/* --- Loading Screen (legacy) --- */
+.loading-screen-old {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,17 +255,13 @@ input:focus, textarea:focus, select:focus {
   background: var(--background);
 }
 
-.loading-spinner {
+.loading-spinner-old {
   width: 40px;
   height: 40px;
   border: 3px solid var(--border);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* --- Scrollbar --- */
@@ -251,4 +306,157 @@ input:focus, textarea:focus, select:focus {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border-width: 0;
+}
+
+/* =============================================
+   ANIMATIONS & ENTRANCE
+   ============================================= */
+
+.animate-fade-in {
+  animation: fadeIn 300ms ease forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 400ms ease forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 300ms ease forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 200ms ease forwards;
+}
+
+/* Staggered children */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeInUp 400ms ease forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+
+/* =============================================
+   LOADING STATES
+   ============================================= */
+
+/* Spinner */
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner-sm { width: 16px; height: 16px; border-width: 2px; }
+.spinner-lg { width: 36px; height: 36px; border-width: 3px; }
+.spinner-xl { width: 48px; height: 48px; border-width: 4px; }
+.spinner-white { border-color: rgba(255,255,255,0.3); border-top-color: white; }
+
+/* Loading screen */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--background);
+  gap: var(--space-4);
+}
+
+.loading-screen p {
+  color: var(--text-secondary);
+  font-size: var(--text-body-sm);
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--neutral-light) 25%,
+    var(--border) 50%,
+    var(--neutral-light) 75%
+  );
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+/* Skeleton text lines */
+.skeleton-text {
+  height: 14px;
+  border-radius: var(--radius-full);
+  margin-bottom: var(--space-2);
+}
+.skeleton-text:last-child { width: 70%; margin-bottom: 0; }
+
+/* Skeleton card */
+.skeleton-card {
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+}
+
+/* Full page loader */
+.full-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16);
+}
+
+/* =============================================
+   RESPONSIVE UTILITY CLASSES
+   ============================================= */
+
+/* Responsive grid helpers */
+.responsive-grid {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Text responsive */
+.text-responsive-display {
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.text-responsive-headline {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+}
+
+/* =============================================
+   PRINT STYLES
+   ============================================= */
+@media print {
+  .sidebar,
+  .mobileHeader,
+  button { display: none !important; }
+
+  .main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
 }
