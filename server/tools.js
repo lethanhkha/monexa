@@ -216,8 +216,8 @@ const create_transaction = {
   description:
     'Ghi nhận một giao dịch thu nhập hoặc chi tiêu. ĐÂY LÀ TOOL QUAN TRỌNG NHẤT — ' +
     'dùng khi người dùng nói "chi X tiền cho Y", "thu được X", "nhận lương X". ' +
-    'AI phải trích xuất: amount (số tiền), type (income/expense), category (danh mục), ' +
-    'note (mô tả), date (ngày, mặc định hôm nay), và wallet_id (ví tiền). ' +
+    'AI phải trích xuất: amount (số tiền BẰNG SỐ, không phải chữ - ví dụ: 200000 cho "200k" hoặc "200.000đ"), ' +
+    'type (income/expense), category (danh mục), note (mô tả), date (ngày, mặc định hôm nay), và wallet_id (ví tiền). ' +
     'wallet_id bắt buộc — nếu người dùng không chỉ định ví cụ thể, phải hỏi họ chọn ví.',
 
   parameters: {
