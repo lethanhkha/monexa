@@ -45,6 +45,21 @@ async function saveChat(userId, userMsg, assistantMsg) {
   }
 }
 
+// ── Helper: Strip raw tool-call JSON artifacts from LLM text ───────────────────
+// LLaMA-3.3 sometimes echoes {"name": "..."} or function markers in text output.
+// We strip those before sending to the frontend.
+function cleanDelta(text) {
+  return text
+    // Remove standalone tool-call JSON blocks
+    .replace(/```json\s*\{[\s\S]*?\}\s*```/gi, '')
+    // Remove inline {"name": "...", "parameters": {...}} patterns
+    .replace(/\{[\s\S]*?"name"\s*:\s*"(?:get_wallets|create_transaction|create_wallet|create_budget|get_budgets|create_savings_goal|get_savings_goals|get_monthly_summary|get_transactions)"[\s\S]*?\}/g, '')
+    // Remove remaining bare tool name mentions like "get_wallets()" or "<function=get_wallets>"
+    .replace(/<function=\w+>/g, '')
+    .replace(/`\w+\(\)`/g, '')
+    .trim()
+}
+
 // ── Groq Client ────────────────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: process.env.VITE_GROQ_API_KEY })
 console.log('✅ Groq API key loaded:', process.env.VITE_GROQ_API_KEY.slice(0, 8) + '...')
@@ -79,33 +94,31 @@ Monexa là app quản lý chi tiêu cá nhân. Các bảng dữ liệu:
 | "Xem mục tiêu tiết kiệm" | get_savings_goals |
 
 ## QUY TẮC PHẢN HỒI
-1. LUÔN trả lời TIẾNG VIỆT
+1. LUÔN trả lời TIẾNG VIỆT, THÂN THIỆN, TỰ NHIÊN
 2. Khi dùng tool → CHỜ kết quả rồi THÔNG BÁO thành công bằng tiếng Việt tự nhiên
 3. Nếu tool thất bại → nói lỗi bằng tiếng Việt, đề xuất cách sửa
-4. Khi cần wallet_id mà chưa biết → gọi get_wallets TRƯỚC rồi hỏi người dùng chọn ví
+4. Khi cần wallet_id mà chưa biết → gọi get_wallets TRƯỚC rồi hỏi người dùng chọn ví bằng TÊN VÍ
 5. KHÔNG BAO GIỜ bịa số liệu — dùng tool để lấy dữ liệu thực
 6. Số tiền luôn format: 1.500.000₫ (dùng . 作为千位分隔符)
+7. KHÔNG BAO GIỜ echo lại mã JSON của tool trong response cho người dùng
 
-## VÍ DỤ TOOL CALLS
+## VÍ DỤ
 
 User: "Chi 200k ăn trưa hôm nay"
-Assistant gọi tool:
-{"name": "get_wallets", "parameters": {}}
-→ Sau đó hỏi: "Bạn muốn ghi vào ví nào? [Tiền mặt | Ví Techcombank]"
-Hoặc user đã chỉ định → gọi create_transaction luôn
+→ Gọi get_wallets trước
+→ Hỏi: "Bạn muốn ghi vào ví nào? Ví Tiền mặt, Ví Techcombank, hay Ví MoMo?"
 
 User: "Tháng này tôi chi bao nhiêu?"
-Assistant gọi:
-{"name": "get_monthly_summary", "parameters": {"year": 2026, "month": 6}}
+→ Gọi get_monthly_summary
 → Trả lời: "Tháng 6 bạn đã chi 4.250.000₫, thu 28.000.000₫. Top chi tiêu: Ăn uống 1.8M, Di chuyển 800k."
 
 User: "Tạo ví ngân hàng VietinBank"
-Assistant gọi:
-{"name": "create_wallet", "parameters": {"name": "VietinBank", "type": "bank", "balance": 0}}
+→ Gọi create_wallet
+→ Trả lời: "Mình đã tạo ví VietinBank cho bạn rồi! Số dư hiện tại: 0₫."
 
 ## HẠN CHẾ
 - Mỗi response CHỈ gọi TỐI ĐA 2 tool calls
-- Nếu cần tạo transaction → phải có wallet_id, luôn hỏi nếu user không chỉ định
+- Nếu cần tạo transaction → phải có wallet_id, luôn hỏi bằng TÊN VÍ nếu user không chỉ định
 - Nếu dữ liệu trống → thông báo và gợi ý hành động`
 
 // ── Helper: Build Groq tools format ──────────────────────────────────────────
@@ -242,7 +255,8 @@ app.post('/api/chat', async (req, res) => {
         temperature: 0.7,
         max_tokens: 1024,
       })
-      const fullContent = finalResponse.choices[0]?.message?.content || ''
+      const rawContent = finalResponse.choices[0]?.message?.content || ''
+      const fullContent = cleanDelta(rawContent)
       res.write(`data: ${JSON.stringify({ delta: fullContent })}\n\n`)
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
       res.end()
@@ -261,10 +275,13 @@ app.post('/api/chat', async (req, res) => {
     let fullContent = ''
 
     for await (const chunk of response) {
-      const delta = chunk.choices[0]?.delta?.content || ''
-      if (delta) {
-        fullContent += delta
-        res.write(`data: ${JSON.stringify({ delta })}\n\n`)
+      const raw = chunk.choices[0]?.delta?.content || ''
+      if (raw) {
+        fullContent += raw
+        const cleaned = cleanDelta(raw)
+        if (cleaned) {
+          res.write(`data: ${JSON.stringify({ delta: cleaned })}\n\n`)
+        }
       }
     }
 

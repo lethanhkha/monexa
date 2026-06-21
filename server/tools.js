@@ -46,7 +46,14 @@ const get_wallets = {
       .select('id, name, type, currency, balance, color, icon')
       .order('created_at', { ascending: true })
     if (error) return { success: false, error: error.message }
-    return { success: true, data: data ?? [] }
+    const wallets = (data ?? []).map(w => ({
+      id: w.id,
+      name: w.name,
+      type: w.type,
+      balance: w.balance,
+      formatted_balance: Number(w.balance).toLocaleString('vi-VN') + '₫',
+    }))
+    return { success: true, data: wallets }
   },
 }
 
@@ -108,7 +115,25 @@ const get_transactions = {
 
     const { data, error } = await query
     if (error) return { success: false, error: error.message }
-    return { success: true, data: data ?? [] }
+
+    // Fetch wallet names for readable output
+    const walletIds = [...new Set((data ?? []).map(t => t.wallet_id).filter(Boolean))]
+    const { data: wallets } = await supabase
+      .from('wallets').select('id, name').in('id', walletIds)
+    const walletMap = Object.fromEntries((wallets ?? []).map(w => [w.id, w.name]))
+
+    const enriched = (data ?? []).map(t => ({
+      id: t.id,
+      wallet_name: walletMap[t.wallet_id] ?? t.wallet_id,
+      type: t.type,
+      amount: t.amount,
+      formatted_amount: Number(t.amount).toLocaleString('vi-VN') + '₫',
+      category: t.category,
+      note: t.note,
+      date: t.date,
+    }))
+
+    return { success: true, data: enriched }
   },
 }
 
@@ -232,13 +257,30 @@ const create_transaction = {
     const supabase = createServerClient()
     const date = args.date ?? new Date().toISOString().split('T')[0]
 
+    // ── Normalize amount: "200k" → 200000, "1.5M" → 1500000 ─────────────────
+    let amount = Number(args.amount)
+    if (isNaN(amount) || amount <= 0) {
+      return { success: false, error: `Số tiền không hợp lệ: "${args.amount}"` }
+    }
+    // If amount looks like it was parsed as thousands-only (e.g. 200 for "200k"),
+    // detect and correct: if amount < 1000 and user likely used k/M suffix
+    const rawStr = String(args.amount).toLowerCase()
+    if (rawStr.includes('k')) {
+      amount = amount * 1000
+    } else if (rawStr.includes('m')) {
+      amount = amount * 1000000
+    }
+
+    const { data: walletData } = await supabase
+      .from('wallets').select('name, balance').eq('id', args.wallet_id).single()
+
     const { data, error } = await supabase
       .from('transactions')
       .insert({
         user_id: ctx.user_id,
         wallet_id: args.wallet_id,
         type: args.type,
-        amount: args.amount,
+        amount,
         category: args.category,
         note: args.note ?? null,
         date,
@@ -250,11 +292,14 @@ const create_transaction = {
     if (error) return { success: false, error: error.message }
 
     const emoji = args.type === 'income' ? '📈' : '📉'
+    const walletName = walletData?.name ?? '(ví đã chọn)'
     return {
       success: true,
       data: {
         ...data,
-        message: `${emoji} Đã ghi nhận giao dịch thành công!`,
+        wallet_name: walletName,
+        formatted_amount: amount.toLocaleString('vi-VN') + '₫',
+        message: `${emoji} Đã ghi nhận giao dịch thành công vào ví "${walletName}"!`,
       },
     }
   },
