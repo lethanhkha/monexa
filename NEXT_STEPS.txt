@@ -1,0 +1,303 @@
+================================================================================
+  HƯỚNG DẪN TIẾP THEO — DỰ ÁN MONEXA
+================================================================================
+
+Sau khi hoàn thành setup project, đây là các bước tiếp theo để hoàn
+thiện ứng dụng Monexa. Làm theo thứ tự từ trên xuống.
+
+================================================================================
+  BƯỚC 1: CÀI ĐẶT SUPABASE
+================================================================================
+
+1.1. Truy cập https://supabase.com và tạo tài khoản (đăng nhập Google)
+
+1.2. Tạo project mới:
+    - Project name: monexa
+    - Database Region: chọn region gần nhất (Singapore)
+    - Set Master Password → Lưu lại
+    - Wait for provisioning (~2 phút)
+
+1.3. Lấy credentials từ Supabase Dashboard → Settings → API:
+    - Project URL: https://xxxxx.supabase.co
+    - anon/public key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+1.4. Tạo file .env ở thư mục gốc project:
+    cp .env.example .env
+
+    Sau đó điền:
+    VITE_SUPABASE_URL=https://your-project.supabase.co
+    VITE_SUPABASE_ANON_KEY=your-anon-key
+
+1.5. Chạy database migration:
+    - Trong Supabase Dashboard → SQL Editor
+    - Copy toàn bộ nội dung file: supabase/migrations/001_initial_schema.sql
+    - Paste vào SQL Editor → Run
+
+    Nếu gặp lỗi "relation already exists", xóa từng dòng DROP/CREATE
+    và chỉ chạy phần INSERT seed data.
+
+================================================================================
+  BƯỚC 2: KẾT NỐI GOOGLE OAUTH
+================================================================================
+
+2.1. Trong Supabase Dashboard → Authentication → Providers → Google
+
+2.2. Bật Google OAuth provider
+
+2.3. Cấu hình Google Cloud Console:
+    - Truy cập https://console.cloud.google.com
+    - Tạo project mới hoặc chọn project có sẵn
+    - APIs & Services → Credentials → Create Credentials → OAuth client ID
+    - Application type: Web application
+    - Authorized redirect URIs:
+        https://your-project.supabase.co/auth/v1/callback
+
+    - Copy Client ID và Client Secret
+
+2.4. Quay lại Supabase Dashboard → Google provider settings:
+    - Client ID: (paste từ Google Cloud)
+    - Client Secret: (paste từ Google Cloud)
+
+2.5. Cập nhật .env:
+    VITE_SUPABASE_URL=https://your-project.supabase.co
+    VITE_SUPABASE_ANON_KEY=your-anon-key
+
+2.6. Enable Row Level Security đã được cấu hình sẵn trong migration.
+    Kiểm tra: Supabase Dashboard → Database → Tables → profiles → Policies
+
+================================================================================
+  BƯỚC 3: LẤY API KEY CHO AI CHATBOT
+================================================================================
+
+Chọn 1 trong 2 nhà cung cấp AI:
+
+--- TUYẾN CHỌN A: GROQ (Khuyến nghị — Miễn phí, nhanh) ---
+
+3A.1. Truy cập https://console.groq.com và đăng ký
+
+3A.2. API Keys → Create API Key → Copy
+
+3A.3. Thêm vào .env:
+    VITE_GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxx
+
+3A.4. Sau này viết API route sử dụng Groq SDK:
+    npm install groq-sdk
+
+--- TUYẾN CHỌN B: GEMINI (Google, ổn định) ---
+
+3B.1. Truy cập https://aistudio.google.com/app/apikey
+
+3B.2. Create API Key → Copy
+
+3B.3. Thêm vào .env:
+    VITE_GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxx
+
+3B.4. Sau này viết API route sử dụng:
+    npm install @google/generative-ai
+
+================================================================================
+  BƯỚC 4: CHẠY ỨNG DỤNG LẦN ĐẦU
+================================================================================
+
+4.1. Kiểm tra .env đã điền đầy đủ:
+    VITE_SUPABASE_URL=...
+    VITE_SUPABASE_ANON_KEY=...
+
+4.2. Khởi chạy dev server:
+    npm run dev
+
+    Nếu gặp lỗi TypeScript, chạy:
+    npx tsc --noEmit
+
+4.3. Mở trình duyệt: http://localhost:5173
+
+4.4. Kiểm tra các màn hình:
+    - /login  → Trang đăng nhập
+    - /register → Trang đăng ký
+    - /        → Dashboard (cần đăng nhập trước)
+
+================================================================================
+  BƯỚC 5: THIẾT KẾ GIAO DIỆN TRÊN FIGMA
+================================================================================
+
+5.1. Thiết kế theo BudgetZen Design System đã có sẵn trong code.
+    Xem: budgetzen-DESIGN.md
+
+5.2. Các trang cần thiết kế:
+    - Trang Đăng nhập / Đăng ký
+    - Dashboard (Tổng quan)
+    - Quản lý Ví
+    - Giao dịch
+    - Ngân sách
+    - Mục tiêu Tiết kiệm
+    - Báo cáo
+    - AI Chatbot (widget nổi góc phải dưới)
+
+5.3. Kết nối Figma với Cursor:
+    - Tạo Personal Access Token tại Figma Settings → Account → Personal access tokens
+    - Thêm vào .env:
+        VITE_FIGMA_ACCESS_TOKEN=xxxxxxxxxxxxxx
+        VITE_FIGMA_FILE_KEY=your-figma-file-key
+    - Chạy: npm run import:figma
+
+5.4. Xuất design tokens từ Figma:
+    - Dùng plugin "Figma Tokens" để export biến màu, spacing
+    - Hoặc dùng Figma REST API để lấy color styles
+
+================================================================================
+  BƯỚC 6: KẾT NỐI DỮ LIỆU THỰC TẾ
+================================================================================
+
+Hiện tại các trang đang dùng mock data (dữ liệu giả). Cần thay bằng
+dữ liệu thật từ Supabase.
+
+6.1. Tạo các custom hooks đọc/ghi Supabase:
+
+    src/features/wallets/hooks/useWallets.ts
+    src/features/transactions/hooks/useTransactions.ts
+    src/features/budgets/hooks/useBudgets.ts
+    src/features/savings/hooks/useSavings.ts
+
+6.2. Ví dụ useWallets.ts:
+
+    import { useState, useEffect } from 'react'
+    import { supabase } from '@/lib/supabase'
+    import type { Wallet } from '@/types'
+
+    export function useWallets(userId: string) {
+      const [wallets, setWallets] = useState<Wallet[]>([])
+      const [loading, setLoading] = useState(true)
+
+      useEffect(() => {
+        supabase
+          .from('wallets')
+          .select('*')
+          .eq('user_id', userId)
+          .then(({ data, error }) => {
+            if (data) setWallets(data)
+            setLoading(false)
+          })
+      }, [userId])
+
+      const addWallet = async (wallet: Omit<Wallet, 'id' | 'created_at'>) => {
+        const { data } = await supabase
+          .from('wallets')
+          .insert(wallet)
+          .select()
+          .single()
+        if (data) setWallets(prev => [...prev, data])
+      }
+
+      return { wallets, loading, addWallet }
+    }
+
+6.3. Tương tự cho Transactions, Budgets, Savings
+
+================================================================================
+  BƯỚC 7: HOÀN THIỆN AI CHATBOT
+================================================================================
+
+7.1. Tạo API route để xử lý chat:
+    (Cần setup Supabase Edge Functions hoặc Vercel serverless)
+
+    supabase/functions/chat/index.ts:
+
+    DenoDeployKV.env;
+
+    const groq = new Groq({ apiKey: Deno.env.get('GROQ_API_KEY') });
+
+    Deno.serve(async (req) => {
+      const { message, user_id } = await req.json()
+
+      const completion = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `Bạn là trợ lý quản lý chi tiêu Monexa.
+              Khi người dùng nhập giao dịch, hãy parse thành JSON:
+              { type: "income"|"expense", amount: number, category: string, note: string, date: "YYYY-MM-DD" }
+              Nếu không phải giao dịch, trả lời bình thường.`
+          },
+          { role: 'user', content: message }
+        ]
+      })
+
+      return new Response(JSON.stringify({
+        reply: completion.choices[0].message.content
+      }))
+    })
+
+7.2. Hoặc dùng Vercel API route:
+    src/app/api/chat/route.ts
+
+7.3. Cập nhật Chatbot.tsx để gọi API thật thay vì mock
+
+================================================================================
+  BƯỚC 8: DEPLOY LÊN VERCEL
+================================================================================
+
+8.1. Push code lên GitHub (đã làm):
+    git add . && git commit -m "feat: ..." && git push
+
+8.2. Truy cập https://vercel.com → Import Project
+    - Import từ GitHub repo: lethanhkha/monexa
+
+8.3. Cấu hình Environment Variables trong Vercel:
+    - VITE_SUPABASE_URL
+    - VITE_SUPABASE_ANON_KEY
+    - VITE_GROQ_API_KEY (hoặc VITE_GEMINI_API_KEY)
+
+8.4. Deploy:
+    - Vercel tự nhận Vite project
+    - Build command: npm run build
+    - Output directory: dist
+
+8.5. Sau deploy, cập nhật Supabase Auth redirect URL:
+    - Supabase → Authentication → URL Configuration
+    - Site URL: https://your-app.vercel.app
+    - Redirect URLs: https://your-app.vercel.app/**/*
+
+================================================================================
+  CHECKLIST HOÀN THÀNH
+================================================================================
+
+[ ] Supabase project đã tạo và migration đã chạy
+[ ] Google OAuth đã kết nối
+[ ] AI API key (Groq hoặc Gemini) đã thêm
+[ ] npm run dev chạy không lỗi
+[ ] Đăng nhập / đăng ký hoạt động
+[ ] Dashboard hiển thị dữ liệu thật từ Supabase
+[ ] Figma design đã tạo
+[ ] AI chatbot nhận diện giao dịch
+[ ] Deploy lên Vercel
+
+================================================================================
+  CÁC FILE QUAN TRỌNG
+================================================================================
+
+Cấu trúc project:     src/
+Design system:        src/styles/globals.css (CSS variables)
+Thiết kế Figma:      budgetzen-DESIGN.md
+Database schema:      supabase/migrations/001_initial_schema.sql
+Hướng dẫn Figma MCP: docs/FIGMA_MCP.md
+Environment mẫu:     .env.example
+Typescript types:     src/types/index.ts
+
+================================================================================
+  LIÊN HỆ HỖ TRỢ
+================================================================================
+
+Nếu gặp lỗi:
+1. Kiểm tra Console tab trong trình duyệt (F12)
+2. Kiểm tra Network tab để xem request nào thất bại
+3. Kiểm tra Supabase Dashboard → Logs
+
+Tài liệu tham khảo:
+- Supabase: https://supabase.com/docs
+- Vite: https://vitejs.dev/guide/
+- React Router: https://reactrouter.com/docs
+- Groq API: https://console.groq.com/docs
+- Figma API: https://www.figma.com/developers/api
+
+================================================================================
