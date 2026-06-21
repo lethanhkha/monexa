@@ -3,22 +3,15 @@ import { Card, Button, Badge, Dialog, DialogFooter } from '@/components/ui'
 import { Input } from '@/components/ui/Input'
 import { Plus, TrendingUp, Calendar, Pencil, Trash2, X, Target, Clock, CheckCircle2 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { useSavings } from '../hooks/useSavings'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import styles from './SavingsPage.module.css'
+import toast from 'react-hot-toast'
 
 const GOAL_COLORS = ['#10B981', '#38BDF8', '#A855F7', '#F59E0B', '#EF4444', '#EC4899', '#14B8A6', '#F97316']
 const ICONS = ['✈️', '🚗', '🏠', '💻', '📱', '🎓', '💍', '🏥']
 
-interface SavingsGoal {
-  id: string
-  name: string
-  target: number
-  current: number
-  deadline: string
-  color: string
-  icon: string
-}
-
-interface FormState {
+type FormState = {
   name: string
   target: string
   current: string
@@ -26,12 +19,6 @@ interface FormState {
   color: string
   icon: string
 }
-
-const mockGoals: SavingsGoal[] = [
-  { id: '1', name: 'Du lịch Nhật Bản', target: 50_000_000, current: 32_500_000, deadline: '2026-12-31', color: '#38BDF8', icon: '✈️' },
-  { id: '2', name: 'Mua xe máy', target: 35_000_000, current: 8_000_000, deadline: '2027-06-01', color: '#A855F7', icon: '🚗' },
-  { id: '3', name: 'Quỹ khẩn cấp', target: 20_000_000, current: 20_000_000, deadline: '2026-09-01', color: '#10B981', icon: '🏥' },
-]
 
 const emptyForm = (): FormState => ({
   name: '',
@@ -43,16 +30,18 @@ const emptyForm = (): FormState => ({
 })
 
 export function SavingsPage() {
-  const [goals, setGoals] = useState<SavingsGoal[]>(mockGoals)
+  const { user } = useAuth()
+  const { goals, loading, error, addGoal, updateGoal, deleteGoal } = useSavings(user?.id)
   const [modalOpen, setModalOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [errors, setErrors] = useState<Partial<FormState>>({})
+  const [submitting, setSubmitting] = useState(false)
 
-  const totalSaved = goals.reduce((s, g) => s + g.current, 0)
-  const totalTarget = goals.reduce((s, g) => s + g.target, 0)
-  const completedCount = goals.filter(g => g.current >= g.target).length
+  const totalSaved = goals.reduce((s, g) => s + Number(g.current_amount), 0)
+  const totalTarget = goals.reduce((s, g) => s + Number(g.target_amount), 0)
+  const completedCount = goals.filter(g => Number(g.current_amount) >= Number(g.target_amount)).length
 
   const openAdd = () => {
     setEditId(null)
@@ -61,15 +50,15 @@ export function SavingsPage() {
     setModalOpen(true)
   }
 
-  const openEdit = (g: SavingsGoal) => {
+  const openEdit = (g: typeof goals[number]) => {
     setEditId(g.id)
     setForm({
       name: g.name,
-      target: g.target.toString(),
-      current: g.current.toString(),
-      deadline: g.deadline,
-      color: g.color,
-      icon: g.icon,
+      target: g.target_amount.toString(),
+      current: g.current_amount.toString(),
+      deadline: g.deadline ?? '',
+      color: g.color ?? GOAL_COLORS[0],
+      icon: g.icon ?? ICONS[0],
     })
     setErrors({})
     setModalOpen(true)
@@ -87,33 +76,45 @@ export function SavingsPage() {
     if (!form.name.trim()) e.name = 'Nhập tên mục tiêu'
     if (!form.target || isNaN(Number(form.target)) || Number(form.target) <= 0)
       e.target = 'Hạn mức phải lớn hơn 0'
-    if (!form.deadline) e.deadline = 'Chọn ngày deadline'
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return
-    const data: SavingsGoal = {
-      id: editId || Date.now().toString(),
-      name: form.name.trim(),
-      target: Number(form.target),
-      current: editId ? goals.find(g => g.id === editId)!.current : Number(form.current),
-      deadline: form.deadline,
-      color: form.color,
-      icon: form.icon,
+    setSubmitting(true)
+    try {
+      const data = {
+        name: form.name.trim(),
+        target_amount: Number(form.target),
+        current_amount: Number(form.current) || 0,
+        deadline: form.deadline || undefined,
+        color: form.color,
+        icon: form.icon,
+      }
+      if (editId) {
+        await updateGoal(editId, data)
+        toast.success('Đã cập nhật mục tiêu')
+      } else {
+        await addGoal(data)
+        toast.success('Đã thêm mục tiêu tiết kiệm')
+      }
+      closeModal()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi lưu')
+    } finally {
+      setSubmitting(false)
     }
-    if (editId) {
-      setGoals(prev => prev.map(g => g.id === editId ? data : g))
-    } else {
-      setGoals(prev => [...prev, data])
-    }
-    closeModal()
   }
 
-  const handleDelete = (id: string) => {
-    setGoals(prev => prev.filter(g => g.id !== id))
-    setDeleteId(null)
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteGoal(id)
+      toast.success('Đã xóa mục tiêu')
+      setDeleteId(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi xóa')
+    }
   }
 
   return (
@@ -131,131 +132,156 @@ export function SavingsPage() {
         </Button>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className={styles.errorBanner}>
+          <span>Không thể tải: {error}</span>
+        </div>
+      )}
+
       {/* Summary Stats */}
-      <div className={`${styles.statsRow} animate-fade-in-up`} style={{ animationDelay: '60ms' }}>
-        <div className={styles.statCard}>
-          <div className={styles.statIcon} style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
-            <Target size={18} />
+      {loading ? (
+        <div className={styles.statsRow}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className={styles.statCard}>
+              <div className={`skeleton`} style={{ width: 44, height: 44, borderRadius: 12 }} />
+              <div style={{ flex: 1, marginLeft: 12 }}>
+                <div className={`skeleton`} style={{ width: '60%', height: 20, marginBottom: 6 }} />
+                <div className={`skeleton`} style={{ width: '40%', height: 12 }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={`${styles.statsRow} animate-fade-in-up`} style={{ animationDelay: '60ms' }}>
+          <div className={styles.statCard}>
+            <div className={styles.statIcon} style={{ background: 'var(--primary-light)', color: 'var(--primary)' }}>
+              <Target size={18} />
+            </div>
+            <div>
+              <p className={styles.statValue}>{formatCurrency(totalSaved)}</p>
+              <p className={styles.statLabel}>Đã tiết kiệm</p>
+            </div>
           </div>
-          <div>
-            <p className={styles.statValue}>{formatCurrency(totalSaved)}</p>
-            <p className={styles.statLabel}>Đã tiết kiệm</p>
+          <div className={styles.statCard}>
+            <div className={styles.statIcon} style={{ background: 'var(--secondary-light)', color: 'var(--secondary)' }}>
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <p className={styles.statValue}>{formatCurrency(totalTarget)}</p>
+              <p className={styles.statLabel}>Mục tiêu</p>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={styles.statIcon} style={{ background: 'var(--success-light)', color: 'var(--success)' }}>
+              <CheckCircle2 size={18} />
+            </div>
+            <div>
+              <p className={styles.statValue}>{completedCount}</p>
+              <p className={styles.statLabel}>Hoàn thành</p>
+            </div>
+          </div>
+          <div className={styles.statCard}>
+            <div className={styles.statIcon} style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
+              <Clock size={18} />
+            </div>
+            <div>
+              <p className={styles.statValue}>{goals.length - completedCount}</p>
+              <p className={styles.statLabel}>Đang tiết kiệm</p>
+            </div>
           </div>
         </div>
-        <div className={styles.statCard}>
-          <div className={styles.statIcon} style={{ background: 'var(--secondary-light)', color: 'var(--secondary)' }}>
-            <TrendingUp size={18} />
-          </div>
-          <div>
-            <p className={styles.statValue}>{formatCurrency(totalTarget)}</p>
-            <p className={styles.statLabel}>Mục tiêu</p>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statIcon} style={{ background: 'var(--success-light)', color: 'var(--success)' }}>
-            <CheckCircle2 size={18} />
-          </div>
-          <div>
-            <p className={styles.statValue}>{completedCount}</p>
-            <p className={styles.statLabel}>Hoàn thành</p>
-          </div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statIcon} style={{ background: 'var(--warning-light)', color: 'var(--warning)' }}>
-            <Clock size={18} />
-          </div>
-          <div>
-            <p className={styles.statValue}>{goals.length - completedCount}</p>
-            <p className={styles.statLabel}>Đang tiết kiệm</p>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Goals Grid */}
-      <div className={`${styles.grid} stagger-children`}>
-        {goals.map(goal => {
-          const pct = Math.min(100, Math.round((goal.current / goal.target) * 100))
-          const completed = pct >= 100
-          const daysLeft = goal.deadline
-            ? Math.max(0, Math.ceil((new Date(goal.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-            : null
+      {loading ? (
+        <div className={styles.grid}>
+          {[1, 2, 3].map(i => (
+            <div key={i} className={styles.skeletonCard}>
+              <div className={`skeleton`} style={{ width: 52, height: 52, borderRadius: 12 }} />
+              <div className={`skeleton`} style={{ width: '70%', height: 20, marginTop: 12 }} />
+              <div className={`skeleton`} style={{ width: '50%', height: 28, marginTop: 8 }} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={`${styles.grid} stagger-children`}>
+          {goals.map(goal => {
+            const target = Number(goal.target_amount)
+            const current = Number(goal.current_amount)
+            const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0
+            const completed = pct >= 100
+            const daysLeft = goal.deadline
+              ? Math.max(0, Math.ceil((new Date(goal.deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+              : null
 
-          return (
-            <Card key={goal.id} className={`${styles.goalCard} animate-fade-in-up`}>
-              {/* Top row */}
-              <div className={styles.goalHeader}>
-                <div className={styles.goalIcon} style={{ background: `${goal.color}18` }}>
-                  <span className={styles.goalEmoji}>{goal.icon}</span>
+            return (
+              <Card key={goal.id} className={`${styles.goalCard} animate-fade-in-up`}>
+                <div className={styles.goalHeader}>
+                  <div className={styles.goalIcon} style={{ background: `${goal.color ?? '#10B981'}18` }}>
+                    <span className={styles.goalEmoji}>{goal.icon ?? '💰'}</span>
+                  </div>
+                  <div className={styles.goalActions}>
+                    <button className={styles.iconBtn} onClick={() => openEdit(goal)} title="Sửa">
+                      <Pencil size={13} />
+                    </button>
+                    <button className={`${styles.iconBtn} ${styles.danger}`} onClick={() => setDeleteId(goal.id)} title="Xóa">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-                <div className={styles.goalActions}>
-                  <button className={styles.iconBtn} onClick={() => openEdit(goal)} title="Sửa">
-                    <Pencil size={13} />
-                  </button>
-                  <button className={`${styles.iconBtn} ${styles.danger}`} onClick={() => setDeleteId(goal.id)} title="Xóa">
-                    <Trash2 size={13} />
-                  </button>
+
+                <div className={styles.goalInfo}>
+                  <h3 className={styles.goalName}>{goal.name}</h3>
+                  {completed
+                    ? <Badge variant="success" className={styles.badgeCompleted}><CheckCircle2 size={10} /> Hoàn thành!</Badge>
+                    : daysLeft !== null && daysLeft <= 30
+                      ? <Badge variant="warning" className={styles.badgeDeadline}><Calendar size={10} /> {daysLeft === 0 ? 'Hết hạn!' : `${daysLeft} ngày còn lại`}</Badge>
+                      : null
+                  }
                 </div>
-              </div>
 
-              {/* Goal info */}
-              <div className={styles.goalInfo}>
-                <h3 className={styles.goalName}>{goal.name}</h3>
-                {completed
-                  ? <Badge variant="success" className={styles.badgeCompleted}><CheckCircle2 size={10} /> Hoàn thành!</Badge>
-                  : daysLeft !== null && (
-                    <Badge variant={daysLeft < 30 ? 'warning' : 'default'} className={styles.badgeDeadline}>
-                      <Calendar size={10} /> {daysLeft === 0 ? 'Hết hạn hôm nay!' : `${daysLeft} ngày còn lại`}
-                    </Badge>
-                  )
-                }
-              </div>
-
-              {/* Amounts */}
-              <div className={styles.amounts}>
-                <div>
-                  <p className={styles.currentAmount} style={{ color: goal.color }}>
-                    {formatCurrency(goal.current)}
-                  </p>
-                  <p className={styles.currentLabel}>đã có</p>
+                <div className={styles.amounts}>
+                  <div>
+                    <p className={styles.currentAmount} style={{ color: goal.color ?? 'var(--primary)' }}>
+                      {formatCurrency(current)}
+                    </p>
+                    <p className={styles.currentLabel}>đã có</p>
+                  </div>
+                  <div className={styles.amountSlash}>/</div>
+                  <div>
+                    <p className={styles.targetAmount}>{formatCurrency(target)}</p>
+                    <p className={styles.targetLabel}>mục tiêu</p>
+                  </div>
                 </div>
-                <div className={styles.amountSlash}>/</div>
-                <div>
-                  <p className={styles.targetAmount}>{formatCurrency(goal.target)}</p>
-                  <p className={styles.targetLabel}>mục tiêu</p>
+
+                <div className={styles.progressTrack}>
+                  <div className={styles.progressBar} style={{ width: `${pct}%`, background: goal.color ?? '#10B981' }} />
                 </div>
-              </div>
 
-              {/* Progress */}
-              <div className={styles.progressTrack}>
-                <div
-                  className={styles.progressBar}
-                  style={{ width: `${pct}%`, background: goal.color }}
-                />
-              </div>
+                <div className={styles.goalFooter}>
+                  <span className={styles.pctBadge} style={{ background: `${goal.color ?? '#10B981'}18`, color: goal.color ?? 'var(--primary)' }}>
+                    {pct}%
+                  </span>
+                  {goal.deadline && (
+                    <span className={styles.deadlineText}>
+                      <Calendar size={11} />
+                      {formatDate(goal.deadline)}
+                    </span>
+                  )}
+                </div>
 
-              {/* Footer */}
-              <div className={styles.goalFooter}>
-                <span className={styles.pctBadge} style={{ background: `${goal.color}18`, color: goal.color }}>
-                  {pct}%
-                </span>
-                <span className={styles.deadlineText}>
-                  <Calendar size={11} />
-                  {formatDate(goal.deadline)}
-                </span>
-              </div>
+                <div className={styles.colorBar} style={{ background: goal.color ?? '#10B981' }} />
+              </Card>
+            )
+          })}
 
-              {/* Color accent */}
-              <div className={styles.colorBar} style={{ background: goal.color }} />
-            </Card>
-          )
-        })}
-
-        {/* Add Card */}
-        <button className={styles.addCard} onClick={openAdd}>
-          <div className={styles.addCardIcon}><Plus size={24} /></div>
-          <p className={styles.addCardLabel}>Thêm mục tiêu</p>
-        </button>
-      </div>
+          <button className={styles.addCard} onClick={openAdd}>
+            <div className={styles.addCardIcon}><Plus size={24} /></div>
+            <p className={styles.addCardLabel}>Thêm mục tiêu</p>
+          </button>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       <Dialog
@@ -298,7 +324,6 @@ export function SavingsPage() {
           type="date"
           value={form.deadline}
           onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
-          error={errors.deadline}
         />
 
         <div className={styles.formField}>
@@ -336,7 +361,9 @@ export function SavingsPage() {
 
         <DialogFooter>
           <Button variant="ghost" onClick={closeModal}><X size={15} /> Hủy</Button>
-          <Button onClick={handleSubmit}><Plus size={15} /> {editId ? 'Lưu thay đổi' : 'Tạo mục tiêu'}</Button>
+          <Button onClick={handleSubmit} loading={submitting}>
+            <Plus size={15} /> {editId ? 'Lưu thay đổi' : 'Tạo mục tiêu'}
+          </Button>
         </DialogFooter>
       </Dialog>
 
@@ -349,7 +376,9 @@ export function SavingsPage() {
       >
         <DialogFooter>
           <Button variant="ghost" onClick={() => setDeleteId(null)}><X size={15} /> Hủy</Button>
-          <Button variant="destructive" onClick={() => deleteId && handleDelete(deleteId)}><Trash2 size={15} /> Xóa mục tiêu</Button>
+          <Button variant="destructive" onClick={() => deleteId && handleDelete(deleteId)}>
+            <Trash2 size={15} /> Xóa mục tiêu
+          </Button>
         </DialogFooter>
       </Dialog>
     </div>

@@ -1,28 +1,10 @@
-import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card'
 import { Badge as BadgeUI } from '@/components/ui/Badge'
 import { formatCurrency } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Wallet, AlertCircle, ArrowRight, Sparkles } from 'lucide-react'
+import { useDashboard } from '@/features/dashboard/hooks/useDashboard'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import styles from './DashboardPage.module.css'
-
-// Mock data — will be replaced with Supabase queries
-const mockData = {
-  totalBalance: 15_750_000,
-  monthlyIncome: 28_000_000,
-  monthlyExpense: 12_250_000,
-  recentTransactions: [
-    { id: '1', type: 'expense', amount: 85000, category: 'Ăn uống', note: 'Cơm trưa công ty', date: new Date().toISOString() },
-    { id: '2', type: 'income', amount: 28_000_000, category: 'Lương', note: 'Lương tháng 6', date: new Date(Date.now() - 86400000).toISOString() },
-    { id: '3', type: 'expense', amount: 450_000, category: 'Di chuyển', note: 'Grab đi làm', date: new Date(Date.now() - 172800000).toISOString() },
-    { id: '4', type: 'expense', amount: 320_000, category: 'Mua sắm', note: 'Tạp hóa', date: new Date(Date.now() - 259200000).toISOString() },
-    { id: '5', type: 'expense', amount: 150_000, category: 'Giải trí', note: 'Netflix tháng 6', date: new Date(Date.now() - 345600000).toISOString() },
-  ],
-  budgets: [
-    { category: 'Ăn uống', spent: 2_100_000, limit: 3_000_000 },
-    { category: 'Di chuyển', spent: 850_000, limit: 1_000_000 },
-    { category: 'Giải trí', spent: 600_000, limit: 500_000 },
-  ],
-}
 
 function getGreeting() {
   const hour = new Date().getHours()
@@ -32,6 +14,7 @@ function getGreeting() {
 }
 
 function getBudgetStatus(spent: number, limit: number) {
+  if (limit === 0) return 'ok'
   const pct = (spent / limit) * 100
   if (pct > 100) return 'over'
   if (pct >= 80) return 'warning'
@@ -39,18 +22,15 @@ function getBudgetStatus(spent: number, limit: number) {
 }
 
 export function DashboardPage() {
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
+  const { summary, loading, error } = useDashboard(user?.id)
+
   const greeting = getGreeting()
   const today = new Date().toLocaleDateString('vi-VN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600)
-    return () => clearTimeout(timer)
-  }, [])
-
-  const savings = mockData.monthlyIncome - mockData.monthlyExpense
+  const savings = (summary?.monthlyIncome ?? 0) - (summary?.monthlyExpense ?? 0)
 
   return (
     <div className={styles.page}>
@@ -70,7 +50,7 @@ export function DashboardPage() {
 
       {/* Balance Cards */}
       {loading ? (
-        <div className={`${styles.balanceGrid} ${styles.balanceGridSkel}`}>
+        <div className={styles.balanceGrid}>
           {[1, 2, 3].map(i => (
             <div key={i} className={styles.skeletonCard}>
               <div className={`skeleton ${styles.skelLine}`} style={{ width: '60%', height: 14 }} />
@@ -78,9 +58,13 @@ export function DashboardPage() {
             </div>
           ))}
         </div>
+      ) : error ? (
+        <div className={styles.errorBanner}>
+          <AlertCircle size={16} />
+          <span>Không thể tải dữ liệu: {error}</span>
+        </div>
       ) : (
         <div className={`${styles.balanceGrid} stagger-children`}>
-          {/* Total Balance */}
           <Card className={`${styles.balanceCard} ${styles.balanceCardPrimary}`}>
             <CardHeader className={styles.cardHeaderSm}>
               <CardTitle className={styles.cardTitleSm}>
@@ -90,16 +74,15 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className={styles.cardContentSm}>
               <p className={styles.balanceAmount}>
-                {formatCurrency(mockData.totalBalance)}
+                {formatCurrency(summary?.totalBalance ?? 0)}
               </p>
               <div className={styles.cardTrend}>
                 <TrendingUp size={13} />
-                <span>+2.5% so với tháng trước</span>
+                <span>Số dư tất cả ví</span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Monthly Income */}
           <Card className={`${styles.balanceCard} ${styles.balanceCardIncome}`}>
             <CardHeader className={styles.cardHeaderSm}>
               <CardTitle className={styles.cardTitleSm}>
@@ -109,13 +92,12 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className={styles.cardContentSm}>
               <p className={`${styles.moneyAmount} ${styles.moneyIncome}`}>
-                +{formatCurrency(mockData.monthlyIncome)}
+                +{formatCurrency(summary?.monthlyIncome ?? 0)}
               </p>
-              <div className={styles.cardMeta}>Tháng 6/2026</div>
+              <div className={styles.cardMeta}>Tháng này</div>
             </CardContent>
           </Card>
 
-          {/* Monthly Expense */}
           <Card className={`${styles.balanceCard} ${styles.balanceCardExpense}`}>
             <CardHeader className={styles.cardHeaderSm}>
               <CardTitle className={styles.cardTitleSm}>
@@ -125,10 +107,12 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className={styles.cardContentSm}>
               <p className={`${styles.moneyAmount} ${styles.moneyExpense}`}>
-                -{formatCurrency(mockData.monthlyExpense)}
+                -{formatCurrency(summary?.monthlyExpense ?? 0)}
               </p>
               <div className={styles.cardMeta}>
-                Tiết kiệm <strong style={{ color: 'var(--success)' }}>{formatCurrency(savings)}</strong>
+                Tiết kiệm <strong style={{ color: savings >= 0 ? 'var(--success)' : 'var(--error)' }}>
+                  {formatCurrency(Math.abs(savings))}
+                </strong>
               </div>
             </CardContent>
           </Card>
@@ -136,7 +120,7 @@ export function DashboardPage() {
       )}
 
       {/* Content Grid */}
-      <div className={`${styles.contentGrid} ${loading ? '' : 'animate-fade-in-up'}`} style={{ animationDelay: '200ms' }}>
+      <div className={`${styles.contentGrid} animate-fade-in-up`} style={{ animationDelay: '200ms' }}>
         {/* Recent Transactions */}
         <Card className={styles.transactionsCard}>
           <CardHeader className={styles.cardHeaderRow}>
@@ -159,9 +143,14 @@ export function DashboardPage() {
                   </div>
                 ))}
               </div>
+            ) : !summary?.recentTransactions.length ? (
+              <div className={styles.emptyState}>
+                <p className={styles.emptyText}>Chưa có giao dịch nào. Bắt đầu bằng cách thêm giao dịch đầu tiên!</p>
+                <a href="/transactions" className={styles.emptyAction}>Thêm giao dịch →</a>
+              </div>
             ) : (
               <div className={styles.transactionList}>
-                {mockData.recentTransactions.map((tx, idx) => (
+                {summary.recentTransactions.map((tx, idx) => (
                   <div
                     key={tx.id}
                     className={`${styles.transactionItem} animate-fade-in`}
@@ -171,7 +160,7 @@ export function DashboardPage() {
                       <span className={`${styles.txDot} ${tx.type === 'income' ? styles.dotIncome : styles.dotExpense}`} />
                       <div className={styles.txMeta}>
                         <p className={styles.txCategory}>{tx.category}</p>
-                        <p className={styles.txNote}>{tx.note}</p>
+                        <p className={styles.txNote}>{tx.note || '—'}</p>
                       </div>
                     </div>
                     <div className={styles.txRight}>
@@ -211,10 +200,15 @@ export function DashboardPage() {
                   </div>
                 ))}
               </div>
+            ) : !summary?.budgets.length ? (
+              <div className={styles.emptyState}>
+                <p className={styles.emptyText}>Chưa có ngân sách nào. Tạo ngay!</p>
+                <a href="/budgets" className={styles.emptyAction}>Thêm ngân sách →</a>
+              </div>
             ) : (
               <div className={styles.budgetList}>
-                {mockData.budgets.map((b, i) => {
-                  const pct = Math.min(100, Math.round((b.spent / b.limit) * 100))
+                {summary.budgets.map((b, i) => {
+                  const pct = b.limit > 0 ? Math.min(100, Math.round((b.spent / b.limit) * 100)) : 0
                   const status = getBudgetStatus(b.spent, b.limit)
                   return (
                     <div
@@ -239,7 +233,7 @@ export function DashboardPage() {
                             status === 'over' ? styles.progressOver :
                             status === 'warning' ? styles.progressWarn : styles.progressOk
                           }`}
-                          style={{ width: `${Math.min(100, pct)}%` }}
+                          style={{ width: `${pct}%` }}
                         />
                       </div>
                       <div className={styles.budgetAmounts}>

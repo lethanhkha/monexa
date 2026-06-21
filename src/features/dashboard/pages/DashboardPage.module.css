@@ -483,3 +483,87 @@
     font-size: 1.3rem;
   }
 }
+
+/* --- Shared states --- */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--error-light);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-md);
+  color: var(--error);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.skeletonCard {
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+}
+
+.skelLine {
+  border-radius: var(--radius-md);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-8);
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.emptyText {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin: 0;
+}
+
+.emptyAction {
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.txSkeleton {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) var(--space-5);
+}
+
+.txItemSkeleton {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.txItemSkeleton:last-child { border-bottom: none; }
+
+.skelCircle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.budgetSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 var(--space-5) var(--space-5);
+}
+
+.budgetItemSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

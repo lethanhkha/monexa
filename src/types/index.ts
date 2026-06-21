@@ -1,3 +1,15 @@
+// =============================================
+// MONEXA — TypeScript Types
+// =============================================
+
+export interface Profile {
+  id: string
+  full_name?: string
+  avatar_url?: string
+  created_at: string
+  updated_at: string
+}
+
 export interface User {
   id: string
   email: string
@@ -16,6 +28,7 @@ export interface Wallet {
   color?: string
   icon?: string
   created_at: string
+  updated_at: string
 }
 
 export interface Transaction {
@@ -31,15 +44,19 @@ export interface Transaction {
   is_recurring?: boolean
   recurring_id?: string
   created_at: string
+  updated_at: string
+  wallets?: { name?: string }
 }
 
 export interface Category {
   id: string
-  user_id: string
+  user_id?: string
   name: string
   icon: string
   color: string
   type: 'income' | 'expense'
+  is_default?: boolean
+  created_at: string
 }
 
 export interface Budget {
@@ -51,6 +68,7 @@ export interface Budget {
   start_date: string
   alert_threshold: number
   created_at: string
+  updated_at: string
 }
 
 export interface SavingsGoal {
@@ -63,6 +81,7 @@ export interface SavingsGoal {
   icon?: string
   color?: string
   created_at: string
+  updated_at: string
 }
 
 export interface Message {
@@ -70,4 +89,17 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   created_at: string
+}
+
+// Dashboard summary types
+export interface DashboardSummary {
+  totalBalance: number
+  monthlyIncome: number
+  monthlyExpense: number
+  recentTransactions: Transaction[]
+  budgets: {
+    category: string
+    spent: number
+    limit: number
+  }[]
 }

@@ -1,55 +1,42 @@
 import { useState } from 'react'
 import { Card, CardContent, Button, Dialog, DialogFooter, Badge } from '@/components/ui'
 import { Input } from '@/components/ui/Input'
-import { Plus, Filter, Search, X, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Filter, Search, X, SlidersHorizontal, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { useTransactions } from '../hooks/useTransactions'
+import { useWallets } from '@/features/wallets/hooks/useWallets'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import styles from './TransactionsPage.module.css'
+import toast from 'react-hot-toast'
 
 type TxType = 'income' | 'expense'
 
 const CATEGORIES_INCOME = ['Lương', 'Thưởng', 'Đầu tư', 'Phụ cấp', 'Khác']
 const CATEGORIES_EXPENSE = ['Ăn uống', 'Di chuyển', 'Mua sắm', 'Giải trí', 'Sức khỏe', 'Nhà cửa', 'Hóa đơn', 'Khác']
 
-interface Transaction {
-  id: string
-  type: TxType
-  amount: number
-  category: string
-  note: string
-  wallet: string
-  date: string
-}
-
-interface FormState {
+type FormState = {
   type: TxType
   amount: string
   category: string
   note: string
-  wallet: string
+  wallet_id: string
   date: string
 }
-
-const mockTransactions: Transaction[] = [
-  { id: '1', type: 'expense', amount: 85000, category: 'Ăn uống', note: 'Cơm trưa công ty', wallet: 'Tiền mặt', date: new Date().toISOString() },
-  { id: '2', type: 'income', amount: 28000000, category: 'Lương', note: 'Lương tháng 6', wallet: 'TPBank', date: new Date(Date.now() - 86400000).toISOString() },
-  { id: '3', type: 'expense', amount: 450000, category: 'Di chuyển', note: 'Grab đi làm', wallet: 'MoMo', date: new Date(Date.now() - 172800000).toISOString() },
-  { id: '4', type: 'expense', amount: 320000, category: 'Mua sắm', note: 'Tạp hóa', wallet: 'Tiền mặt', date: new Date(Date.now() - 259200000).toISOString() },
-  { id: '5', type: 'expense', amount: 150000, category: 'Giải trí', note: 'Netflix tháng 6', wallet: 'MoMo', date: new Date(Date.now() - 345600000).toISOString() },
-  { id: '6', type: 'expense', amount: 95000, category: 'Ăn uống', note: 'Cà phê sáng', wallet: 'MoMo', date: new Date(Date.now() - 432000000).toISOString() },
-  { id: '7', type: 'income', amount: 500000, category: 'Thưởng', note: 'Thưởng dự án', wallet: 'TPBank', date: new Date(Date.now() - 518400000).toISOString() },
-]
 
 const emptyForm = (): FormState => ({
   type: 'expense',
   amount: '',
   category: '',
   note: '',
-  wallet: '',
+  wallet_id: '',
   date: new Date().toISOString().split('T')[0],
 })
 
 export function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions)
+  const { user } = useAuth()
+  const { transactions, loading, error, addTransaction, deleteTransaction } = useTransactions(user?.id)
+  const { wallets } = useWallets(user?.id)
+
   const [search, setSearch] = useState('')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterType, setFilterType] = useState<TxType | 'all'>('all')
@@ -58,13 +45,16 @@ export function TransactionsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [errors, setErrors] = useState<Partial<FormState>>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const filtered = transactions
     .filter(tx => {
       const matchSearch =
         !search ||
         tx.category.toLowerCase().includes(search.toLowerCase()) ||
-        tx.note.toLowerCase().includes(search.toLowerCase())
+        (tx.note ?? '').toLowerCase().includes(search.toLowerCase()) ||
+        (tx.wallets?.name ?? '').toLowerCase().includes(search.toLowerCase())
       const matchType = filterType === 'all' || tx.type === filterType
       const matchCat = filterCategory === 'all' || tx.category === filterCategory
       return matchSearch && matchType && matchCat
@@ -74,8 +64,8 @@ export function TransactionsPage() {
       return sortDesc ? diff : -diff
     })
 
-  const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0)
-  const totalExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+  const totalIncome = filtered.filter(t => t.type === 'income').reduce((s, t) => s + Number(t.amount), 0)
+  const totalExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0)
 
   const resetFilters = () => {
     setFilterType('all')
@@ -86,7 +76,7 @@ export function TransactionsPage() {
   const hasActiveFilters = filterType !== 'all' || filterCategory !== 'all' || search !== ''
 
   const openAdd = () => {
-    setForm(emptyForm())
+    setForm({ ...emptyForm(), wallet_id: wallets[0]?.id ?? '' })
     setErrors({})
     setModalOpen(true)
   }
@@ -102,23 +92,42 @@ export function TransactionsPage() {
     if (!form.amount || isNaN(Number(form.amount)) || Number(form.amount) <= 0)
       e.amount = 'Số tiền phải lớn hơn 0'
     if (!form.category) e.category = 'Chọn danh mục'
-    if (!form.wallet.trim()) e.wallet = 'Chọn ví'
+    if (!form.wallet_id) e.wallet_id = 'Chọn ví'
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return
-    setTransactions(prev => [{
-      id: Date.now().toString(),
-      type: form.type,
-      amount: Number(form.amount),
-      category: form.category,
-      note: form.note,
-      wallet: form.wallet,
-      date: new Date(form.date).toISOString(),
-    }, ...prev])
-    closeModal()
+    setSubmitting(true)
+    try {
+      await addTransaction({
+        type: form.type,
+        amount: Number(form.amount),
+        currency: 'VND',
+        category: form.category,
+        note: form.note,
+        wallet_id: form.wallet_id,
+        date: new Date(form.date).toISOString(),
+        is_recurring: false,
+      })
+      toast.success('Đã thêm giao dịch')
+      closeModal()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi thêm giao dịch')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTransaction(id)
+      toast.success('Đã xóa giao dịch')
+      setDeletingId(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi xóa giao dịch')
+    }
   }
 
   return (
@@ -132,7 +141,7 @@ export function TransactionsPage() {
             {hasActiveFilters && ' (đã lọc)'}
           </p>
         </div>
-        <Button onClick={openAdd}>
+        <Button onClick={openAdd} disabled={wallets.length === 0}>
           <Plus size={16} /> Thêm giao dịch
         </Button>
       </div>
@@ -237,27 +246,51 @@ export function TransactionsPage() {
         </div>
       )}
 
+      {/* Error */}
+      {error && (
+        <div className={styles.errorBanner}>
+          <AlertCircle size={16} />
+          <span>Không thể tải giao dịch: {error}</span>
+        </div>
+      )}
+
+      {/* No wallets prompt */}
+      {!loading && wallets.length === 0 && (
+        <div className={styles.noWalletsBanner}>
+          <p>Bạn chưa có ví nào. <a href="/wallets">Tạo ví đầu tiên</a> để thêm giao dịch.</p>
+        </div>
+      )}
+
       {/* Transactions List */}
       <Card className="animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-        {/* Table Header */}
         <div className={styles.tableHead}>
           <span className={styles.colType}>Loại</span>
           <span className={styles.colCategory}>Danh mục</span>
           <span className={styles.colNote}>Ghi chú</span>
           <span className={styles.colWallet}>Ví</span>
-          <span
-            className={styles.colDate}
-            onClick={() => setSortDesc(d => !d)}
-            style={{ cursor: 'pointer' }}
-          >
-            Ngày
-            {sortDesc ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
+          <span className={styles.colDate} onClick={() => setSortDesc(d => !d)} style={{ cursor: 'pointer' }}>
+            Ngày {sortDesc ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
           </span>
           <span className={styles.colAmount}>Số tiền</span>
         </div>
 
         <CardContent className={styles.cardContentNoPad}>
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className={styles.txList}>
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className={styles.txRow}>
+                  <div className={`skeleton`} style={{ width: 60, height: 12, borderRadius: 6 }} />
+                  <div className={`skeleton`} style={{ width: 80, height: 22, borderRadius: 99 }} />
+                  <div style={{ flex: 1 }}>
+                    <div className={`skeleton`} style={{ width: '60%', height: 13, marginBottom: 4 }} />
+                    <div className={`skeleton`} style={{ width: '40%', height: 11 }} />
+                  </div>
+                  <div className={`skeleton`} style={{ width: 70, height: 13 }} />
+                  <div className={`skeleton`} style={{ width: 70, height: 16, borderRadius: 6 }} />
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className={styles.emptyState}>
               <Filter size={32} className={styles.emptyIcon} />
               <p className={styles.emptyTitle}>Không tìm thấy giao dịch</p>
@@ -272,37 +305,45 @@ export function TransactionsPage() {
             </div>
           ) : (
             <div className={styles.txList}>
-              {filtered.map((tx, idx) => (
-                <div
-                  key={tx.id}
-                  className={`${styles.txRow} animate-fade-in`}
-                  style={{ animationDelay: `${idx * 30}ms` }}
-                >
-                  <span className={styles.colType}>
-                    <span className={`${styles.txDot} ${tx.type === 'income' ? styles.dotIncome : styles.dotExpense}`} />
-                    <span className={`${styles.typeLabel} ${tx.type === 'income' ? styles.typeIncome : styles.typeExpense}`}>
-                      {tx.type === 'income' ? 'Thu' : 'Chi'}
+              {filtered.map((tx, idx) => {
+                const walletName = tx.wallets?.name ?? '—'
+                return (
+                  <div
+                    key={tx.id}
+                    className={`${styles.txRow} animate-fade-in`}
+                    style={{ animationDelay: `${idx * 30}ms` }}
+                  >
+                    <span className={styles.colType}>
+                      <span className={`${styles.txDot} ${tx.type === 'income' ? styles.dotIncome : styles.dotExpense}`} />
+                      <span className={`${styles.typeLabel} ${tx.type === 'income' ? styles.typeIncome : styles.typeExpense}`}>
+                        {tx.type === 'income' ? 'Thu' : 'Chi'}
+                      </span>
                     </span>
-                  </span>
-                  <span className={styles.colCategory}>
-                    <Badge variant={tx.type === 'income' ? 'success' : 'default'}>
-                      {tx.category}
-                    </Badge>
-                  </span>
-                  <span className={styles.colNote}>
-                    <span className={styles.txNote}>{tx.note || '—'}</span>
-                  </span>
-                  <span className={styles.colWallet}>
-                    <span className={styles.walletChip}>{tx.wallet}</span>
-                  </span>
-                  <span className={styles.colDate}>
-                    {formatDate(tx.date)}
-                  </span>
-                  <span className={`${styles.colAmount} ${tx.type === 'income' ? styles.amountIncome : styles.amountExpense}`}>
-                    {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                  </span>
-                </div>
-              ))}
+                    <span className={styles.colCategory}>
+                      <Badge variant={tx.type === 'income' ? 'success' : 'default'}>{tx.category}</Badge>
+                    </span>
+                    <span className={styles.colNote}>
+                      <span className={styles.txNote}>{tx.note || '—'}</span>
+                    </span>
+                    <span className={styles.colWallet}>
+                      <span className={styles.walletChip}>{walletName}</span>
+                    </span>
+                    <span className={styles.colDate}>
+                      {formatDate(tx.date)}
+                    </span>
+                    <span className={`${styles.colAmount} ${tx.type === 'income' ? styles.amountIncome : styles.amountExpense}`}>
+                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(Number(tx.amount))}
+                    </span>
+                    <button
+                      className={styles.deleteBtn}
+                      onClick={() => setDeletingId(tx.id)}
+                      title="Xóa giao dịch"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -315,7 +356,6 @@ export function TransactionsPage() {
         title="Thêm giao dịch"
         description="Nhập thông tin giao dịch của bạn."
       >
-        {/* Type toggle */}
         <div className={styles.typeToggle}>
           <button
             className={`${styles.typeToggleBtn} ${form.type === 'expense' ? styles.typeToggleExpense : ''}`}
@@ -334,7 +374,7 @@ export function TransactionsPage() {
         </div>
 
         <Input
-          label="Số tiền"
+          label="Số tiền (VND)"
           type="number"
           placeholder="0"
           value={form.amount}
@@ -368,13 +408,22 @@ export function TransactionsPage() {
         />
 
         <div className={styles.formRow}>
-          <Input
-            label="Ví"
-            placeholder="Ví sử dụng"
-            value={form.wallet}
-            onChange={e => setForm(f => ({ ...f, wallet: e.target.value }))}
-            error={errors.wallet}
-          />
+          <div className={styles.formField}>
+            <label className={styles.formLabel}>Ví</label>
+            <select
+              className={styles.select}
+              value={form.wallet_id}
+              onChange={e => setForm(f => ({ ...f, wallet_id: e.target.value }))}
+            >
+              <option value="">— Chọn ví —</option>
+              {wallets.map(w => (
+                <option key={w.id} value={w.id}>
+                  {w.name} ({formatCurrency(Number(w.balance), w.currency)})
+                </option>
+              ))}
+            </select>
+            {errors.wallet_id && <p className={styles.fieldError}>{errors.wallet_id}</p>}
+          </div>
           <Input
             label="Ngày"
             type="date"
@@ -387,8 +436,25 @@ export function TransactionsPage() {
           <Button variant="ghost" onClick={closeModal}>
             <X size={15} /> Hủy
           </Button>
-          <Button onClick={handleSubmit}>
+          <Button onClick={handleSubmit} loading={submitting}>
             <Plus size={15} /> Thêm giao dịch
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <Dialog
+        open={deletingId !== null}
+        onOpenChange={open => { if (!open) setDeletingId(null) }}
+        title="Xóa giao dịch?"
+        description="Giao dịch này sẽ bị xóa. Số dư ví sẽ được cập nhật lại."
+      >
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setDeletingId(null)}>
+            <X size={15} /> Hủy
+          </Button>
+          <Button variant="destructive" onClick={() => deletingId && handleDelete(deletingId)}>
+            Xóa giao dịch
           </Button>
         </DialogFooter>
       </Dialog>

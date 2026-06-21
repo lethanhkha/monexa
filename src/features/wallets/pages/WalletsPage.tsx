@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Card, Badge, Button, Dialog, DialogFooter } from '@/components/ui'
 import { Input } from '@/components/ui/Input'
-import { Wallet as WalletIcon, Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Wallet as WalletIcon, Plus, Pencil, Trash2, Check, X, AlertCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { useWallets } from '../hooks/useWallets'
+import { useAuth } from '@/features/auth/hooks/useAuth'
 import styles from './WalletsPage.module.css'
+import toast from 'react-hot-toast'
 
 const WALLET_COLORS = [
   '#10B981', '#38BDF8', '#A855F7', '#F59E0B',
@@ -16,55 +19,53 @@ const WALLET_TYPES: Record<string, string> = {
   'e-wallet': 'Ví điện tử',
 }
 
-interface WalletData {
-  id: string
-  name: string
-  type: 'cash' | 'bank' | 'e-wallet'
-  balance: number
-  currency: 'VND' | 'USD'
-  color: string
-}
+type WalletType = 'cash' | 'bank' | 'e-wallet'
+type Currency = 'VND' | 'USD'
 
 interface FormState {
   name: string
-  type: 'cash' | 'bank' | 'e-wallet'
+  type: WalletType
   balance: string
-  currency: 'VND' | 'USD'
+  currency: Currency
   color: string
 }
 
-const mockWallets: WalletData[] = [
-  { id: '1', name: 'Tiền mặt', type: 'cash', balance: 3_500_000, currency: 'VND', color: '#10B981' },
-  { id: '2', name: 'TPBank', type: 'bank', balance: 8_250_000, currency: 'VND', color: '#38BDF8' },
-  { id: '3', name: 'MoMo', type: 'e-wallet', balance: 2_000_000, currency: 'VND', color: '#A855F7' },
-  { id: '4', name: 'PayPal', type: 'e-wallet', balance: 150, currency: 'USD', color: '#F59E0B' },
-]
-
-const emptyForm: FormState = { name: '', type: 'cash', balance: '', currency: 'VND', color: '#10B981' }
+const emptyForm = (): FormState => ({
+  name: '', type: 'cash', balance: '', currency: 'VND', color: WALLET_COLORS[0],
+})
 
 export function WalletsPage() {
-  const [wallets, setWallets] = useState<WalletData[]>(mockWallets)
+  const { user } = useAuth()
+  const { wallets, loading, error, addWallet, updateWallet, deleteWallet } = useWallets(user?.id)
   const [modalOpen, setModalOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
-  const [form, setForm] = useState<FormState>(emptyForm)
+  const [form, setForm] = useState<FormState>(emptyForm())
   const [errors, setErrors] = useState<Partial<FormState>>({})
+  const [submitting, setSubmitting] = useState(false)
+
+  const totalVND = wallets
+    .filter(w => w.currency === 'VND')
+    .reduce((sum, w) => sum + Number(w.balance), 0)
+  const totalUSD = wallets
+    .filter(w => w.currency === 'USD')
+    .reduce((sum, w) => sum + Number(w.balance), 0)
 
   const openAdd = () => {
     setEditId(null)
-    setForm(emptyForm)
+    setForm(emptyForm())
     setErrors({})
     setModalOpen(true)
   }
 
-  const openEdit = (wallet: WalletData) => {
+  const openEdit = (wallet: typeof wallets[number]) => {
     setEditId(wallet.id)
     setForm({
       name: wallet.name,
       type: wallet.type,
       balance: wallet.balance.toString(),
       currency: wallet.currency,
-      color: wallet.color,
+      color: wallet.color ?? WALLET_COLORS[0],
     })
     setErrors({})
     setModalOpen(true)
@@ -73,48 +74,59 @@ export function WalletsPage() {
   const closeModal = () => {
     setModalOpen(false)
     setEditId(null)
-    setForm(emptyForm)
+    setForm(emptyForm())
     setErrors({})
   }
 
-  const validate = (): boolean => {
-    const newErrors: Partial<FormState> = {}
-    if (!form.name.trim()) newErrors.name = 'Vui lòng nhập tên ví'
+  const validate = () => {
+    const e: Partial<FormState> = {}
+    if (!form.name.trim()) e.name = 'Vui lòng nhập tên ví'
     if (!form.balance || isNaN(Number(form.balance)) || Number(form.balance) < 0)
-      newErrors.balance = 'Số dư phải là số không âm'
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+      e.balance = 'Số dư phải là số không âm'
+    setErrors(e)
+    return Object.keys(e).length === 0
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validate()) return
-    const data: WalletData = {
-      id: editId || Date.now().toString(),
-      name: form.name.trim(),
-      type: form.type,
-      balance: Number(form.balance),
-      currency: form.currency,
-      color: form.color,
+    setSubmitting(true)
+    try {
+      if (editId) {
+        await updateWallet(editId, {
+          name: form.name.trim(),
+          type: form.type,
+          balance: Number(form.balance),
+          currency: form.currency,
+          color: form.color,
+        })
+        toast.success('Đã cập nhật ví')
+      } else {
+        await addWallet({
+          name: form.name.trim(),
+          type: form.type,
+          balance: Number(form.balance),
+          currency: form.currency,
+          color: form.color,
+        })
+        toast.success('Đã thêm ví mới')
+      }
+      closeModal()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi lưu')
+    } finally {
+      setSubmitting(false)
     }
-    if (editId) {
-      setWallets(prev => prev.map(w => w.id === editId ? data : w))
-    } else {
-      setWallets(prev => [data, ...prev])
-    }
-    closeModal()
   }
 
-  const handleDelete = (id: string) => {
-    setWallets(prev => prev.filter(w => w.id !== id))
-    setDeleteId(null)
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteWallet(id)
+      toast.success('Đã xóa ví')
+      setDeleteId(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi xóa')
+    }
   }
-
-  const totalVND = wallets
-    .filter(w => w.currency === 'VND')
-    .reduce((sum, w) => sum + w.balance, 0)
-  const totalUSD = wallets
-    .filter(w => w.currency === 'USD')
-    .reduce((sum, w) => sum + w.balance, 0)
 
   return (
     <div className={styles.page}>
@@ -135,65 +147,69 @@ export function WalletsPage() {
         </Button>
       </div>
 
-      {/* Wallets Grid */}
-      <div className={`${styles.walletsGrid} stagger-children`}>
-        {wallets.map(wallet => (
-          <Card key={wallet.id} className={`${styles.walletCard} animate-fade-in-up`}>
-            {/* Card top bar */}
-            <div className={styles.walletTop}>
-              <div
-                className={styles.walletIcon}
-                style={{ background: `${wallet.color}18`, borderColor: `${wallet.color}35` }}
-              >
-                <WalletIcon size={20} color={wallet.color} />
-              </div>
-              <div className={styles.walletActions}>
-                <button
-                  className={styles.iconBtn}
-                  onClick={() => openEdit(wallet)}
-                  title="Sửa ví"
+      {/* Error */}
+      {error && (
+        <div className={styles.errorBanner}>
+          <AlertCircle size={16} />
+          <span>Không thể tải ví: {error}</span>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading ? (
+        <div className={styles.walletsGrid}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className={styles.skeletonCard}>
+              <div className={`skeleton`} style={{ width: 48, height: 48, borderRadius: 12 }} />
+              <div className={`skeleton`} style={{ width: '60%', height: 18, marginTop: 12 }} />
+              <div className={`skeleton`} style={{ width: '40%', height: 24, marginTop: 8 }} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className={`${styles.walletsGrid} stagger-children`}>
+          {wallets.map(wallet => (
+            <Card key={wallet.id} className={`${styles.walletCard} animate-fade-in-up`}>
+              <div className={styles.walletTop}>
+                <div
+                  className={styles.walletIcon}
+                  style={{ background: `${wallet.color ?? '#10B981'}18`, borderColor: `${wallet.color ?? '#10B981'}35` }}
                 >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  className={`${styles.iconBtn} ${styles.danger}`}
-                  onClick={() => setDeleteId(wallet.id)}
-                  title="Xóa ví"
-                >
-                  <Trash2 size={13} />
-                </button>
+                  <WalletIcon size={20} color={wallet.color ?? '#10B981'} />
+                </div>
+                <div className={styles.walletActions}>
+                  <button className={styles.iconBtn} onClick={() => openEdit(wallet)} title="Sửa ví">
+                    <Pencil size={13} />
+                  </button>
+                  <button className={`${styles.iconBtn} ${styles.danger}`} onClick={() => setDeleteId(wallet.id)} title="Xóa ví">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               </div>
+              <div className={styles.walletInfo}>
+                <h3 className={styles.walletName}>{wallet.name}</h3>
+                <Badge variant="default" className={styles.typeBadge}>
+                  {WALLET_TYPES[wallet.type]}
+                </Badge>
+              </div>
+              <div className={styles.walletBalance}>
+                <p className={styles.balanceAmount} style={{ color: wallet.color ?? '#10B981' }}>
+                  {formatCurrency(Number(wallet.balance), wallet.currency)}
+                </p>
+                <p className={styles.balanceLabel}>Số dư</p>
+              </div>
+              <div className={styles.colorBar} style={{ background: wallet.color ?? '#10B981' }} />
+            </Card>
+          ))}
+
+          <button className={styles.addCard} onClick={openAdd}>
+            <div className={styles.addCardIcon}>
+              <Plus size={24} />
             </div>
-
-            {/* Wallet info */}
-            <div className={styles.walletInfo}>
-              <h3 className={styles.walletName}>{wallet.name}</h3>
-              <Badge variant="default" className={styles.typeBadge}>
-                {WALLET_TYPES[wallet.type]}
-              </Badge>
-            </div>
-
-            {/* Balance */}
-            <div className={styles.walletBalance}>
-              <p className={styles.balanceAmount} style={{ color: wallet.color }}>
-                {formatCurrency(wallet.balance, wallet.currency as 'VND' | 'USD')}
-              </p>
-              <p className={styles.balanceLabel}>Số dư</p>
-            </div>
-
-            {/* Color accent */}
-            <div className={styles.colorBar} style={{ background: wallet.color }} />
-          </Card>
-        ))}
-
-        {/* Add New Card */}
-        <button className={styles.addCard} onClick={openAdd}>
-          <div className={styles.addCardIcon}>
-            <Plus size={24} />
-          </div>
-          <p className={styles.addCardLabel}>Thêm ví mới</p>
-        </button>
-      </div>
+            <p className={styles.addCardLabel}>Thêm ví mới</p>
+          </button>
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       <Dialog
@@ -215,7 +231,7 @@ export function WalletsPage() {
           <div className={styles.formField}>
             <label className={styles.formLabel}>Loại ví</label>
             <div className={styles.typeSelect}>
-              {(['cash', 'bank', 'e-wallet'] as const).map(type => (
+              {(['cash', 'bank', 'e-wallet'] as WalletType[]).map(type => (
                 <button
                   key={type}
                   className={`${styles.typeOption} ${form.type === type ? styles.typeOptionActive : ''}`}
@@ -246,7 +262,7 @@ export function WalletsPage() {
             <select
               className={styles.select}
               value={form.currency}
-              onChange={e => setForm(f => ({ ...f, currency: e.target.value as 'VND' | 'USD' }))}
+              onChange={e => setForm(f => ({ ...f, currency: e.target.value as Currency }))}
             >
               <option value="VND">VND</option>
               <option value="USD">USD</option>
@@ -275,7 +291,7 @@ export function WalletsPage() {
           <Button variant="ghost" onClick={closeModal}>
             <X size={15} /> Hủy
           </Button>
-          <Button onClick={handleSubmit}>
+          <Button onClick={handleSubmit} loading={submitting}>
             <Check size={15} /> {editId ? 'Lưu thay đổi' : 'Tạo ví'}
           </Button>
         </DialogFooter>
@@ -292,10 +308,7 @@ export function WalletsPage() {
           <Button variant="ghost" onClick={() => setDeleteId(null)}>
             <X size={15} /> Hủy
           </Button>
-          <Button
-            variant="destructive"
-            onClick={() => deleteId && handleDelete(deleteId)}
-          >
+          <Button variant="destructive" onClick={() => deleteId && handleDelete(deleteId)}>
             <Trash2 size={15} /> Xóa ví
           </Button>
         </DialogFooter>
