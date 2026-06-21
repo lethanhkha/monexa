@@ -45,18 +45,37 @@ async function saveChat(userId, userMsg, assistantMsg) {
   }
 }
 
-// ── Helper: Strip raw tool-call JSON artifacts from LLM text ───────────────────
-// LLaMA-3.3 sometimes echoes {"name": "..."} or function markers in text output.
-// We strip those before sending to the frontend.
+// ── Helper: Strip UUIDs from user message before sending to Groq ──────────────────
+// Also resolves wallet UUIDs to their names for cleaner AI context.
+function resolveUserMessage(msg, wallets = []) {
+  let resolved = msg
+  for (const w of wallets) {
+    const escaped = w.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    resolved = resolved.replace(new RegExp(escaped, 'gi'), `"${w.name}"`)
+  }
+  // Remove any remaining bare UUIDs
+  resolved = resolved.replace(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+    '[ví đã chọn]',
+  )
+  return resolved
+}
+
+// ── Helper: Clean AI delta before sending to frontend ─────────────────────────────
+// LLaMA-3.3 sometimes echoes tool artifacts in text output.
 function cleanDelta(text) {
   return text
-    // Remove standalone tool-call JSON blocks
     .replace(/```json\s*\{[\s\S]*?\}\s*```/gi, '')
-    // Remove inline {"name": "...", "parameters": {...}} patterns
-    .replace(/\{[\s\S]*?"name"\s*:\s*"(?:get_wallets|create_transaction|create_wallet|create_budget|get_budgets|create_savings_goal|get_savings_goals|get_monthly_summary|get_transactions)"[\s\S]*?\}/g, '')
-    // Remove remaining bare tool name mentions like "get_wallets()" or "<function=get_wallets>"
+    .replace(
+      /\{[\s\S]*?"name"\s*:\s*"(?:get_wallets|create_transaction|create_wallet|create_budget|get_budgets|create_savings_goal|get_savings_goals|get_monthly_summary|get_transactions)"[\s\S]*?\}/g,
+      '',
+    )
     .replace(/<function=\w+>/g, '')
     .replace(/`\w+\(\)`/g, '')
+    .replace(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
+      '[ví đã chọn]',
+    )
     .trim()
 }
 
@@ -183,14 +202,36 @@ app.post('/api/chat', async (req, res) => {
 
   const ctx = { user_id }
 
+  // ── Pre-fetch wallets so we can resolve UUIDs in user message ────────────────
+  let wallets = []
+  try {
+    const { createClient: createSvc } = await import('@supabase/supabase-js')
+    const svcKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (svcKey) {
+      const svc = createSvc(process.env.VITE_SUPABASE_URL, svcKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+      const { data } = await svc
+        .from('wallets')
+        .select('id, name, balance')
+        .order('created_at', { ascending: true })
+      wallets = data ?? []
+    }
+  } catch {
+    // non-fatal — proceed without wallet list
+  }
+
+  // Clean user message: replace UUIDs with wallet names
+  const cleanedMessage = resolveUserMessage(message, wallets)
+
   // Build messages for Groq
   const groqMessages = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...conversation_history.slice(-12).map((msg) => ({
       role: msg.role,
-      content: msg.content,
+      content: msg.role === 'user' ? resolveUserMessage(msg.content, wallets) : msg.content,
     })),
-    { role: 'user', content: message },
+    { role: 'user', content: cleanedMessage },
   ]
 
   try {
@@ -220,7 +261,6 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Step 3: If tools were called, add results + final response
-    let needsWalletPicker = false
     if (toolCalls.length > 0) {
       // Add assistant's tool call message
       groqMessages.push(assistantMsg)
@@ -229,10 +269,6 @@ app.post('/api/chat', async (req, res) => {
       for (const call of toolCalls) {
         const name = call.function?.name ?? ''
         const result = toolResults[name]
-        // If user didn't specify wallet and AI called get_wallets → trigger wallet picker
-        if (name === 'get_wallets' && result?.success && result?.data?.length === 0) {
-          needsWalletPicker = true
-        }
         groqMessages.push({
           role: 'tool',
           tool_call_id: call.id,
@@ -240,25 +276,14 @@ app.post('/api/chat', async (req, res) => {
         })
       }
 
-      // If no wallets exist yet → send wallet list to frontend then ask AI to suggest creating one
-      const walletsResult = toolResults['get_wallets']
-      if (walletsResult?.success && (walletsResult.data?.length ?? 0) > 0) {
-        // Send wallet list to frontend BEFORE the stream starts
-        res.setHeader('Content-Type', 'text/event-stream')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.setHeader('Connection', 'keep-alive')
-        res.flushHeaders()
-        res.write(`data: ${JSON.stringify({ wallets: walletsResult.data })}\n\n`)
-      } else {
-        // No wallets at all → set headers, send empty list
-        res.setHeader('Content-Type', 'text/event-stream')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.setHeader('Connection', 'keep-alive')
-        res.flushHeaders()
-        res.write(`data: ${JSON.stringify({ wallets: [] })}\n\n`)
-      }
+      // Send wallet list to frontend (already fetched above)
+      res.setHeader('Content-Type', 'text/event-stream')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.setHeader('Connection', 'keep-alive')
+      res.flushHeaders()
+      res.write(`data: ${JSON.stringify({ wallets })}\n\n`)
 
-      // Step 4: Final Groq call — produce natural language response (non-streaming, so we control the output)
+      // Step 4: Final Groq call — produce natural language response
       const finalResponse = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: groqMessages,
@@ -272,11 +297,11 @@ app.post('/api/chat', async (req, res) => {
       res.end()
 
       // Save to chat history (async, non-blocking)
-      saveChat(user_id, message, fullContent).catch(() => {})
+      saveChat(user_id, cleanedMessage, fullContent).catch(() => {})
       return
     }
 
-    // Step: No tool calls — stream directly (non-tool flow)
+    // Step: No tool calls — stream directly
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
@@ -299,7 +324,7 @@ app.post('/api/chat', async (req, res) => {
     res.end()
 
     // Save to chat history (async, non-blocking)
-    saveChat(user_id, message, fullContent).catch(() => {})
+    saveChat(user_id, cleanedMessage, fullContent).catch(() => {})
   } catch (err) {
     console.error('❌ Groq error:', err?.message || err)
     if (!res.headersSent) {

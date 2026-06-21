@@ -11,7 +11,41 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-// ── Supabase server-side client (bypass RLS for write operations) ──────────────
+// ── Smart category mapping: guess category from note ─────────────────────────────────
+// Maps common Vietnamese phrases → canonical category names.
+const CATEGORY_MAP = [
+  // Ăn uống
+  { keywords: ['ăn', 'trưa', 'sáng', 'tối', 'café', 'cafe', 'cà phê', 'quán', 'bún', 'phở', 'bánh', 'mì', 'cơm', 'bữa', 'nấu', 'siêu thị', 'food', 'drink'], category: 'Ăn uống' },
+  // Di chuyển
+  { keywords: ['xe', 'xăng', 'bus', 'taxi', 'grab', 'may bay', 'máy bay', 'tàu', 'metro', 'di chuyển', 'đi lại', 'parking', 'đỗ xe', 'vé', 'transport'], category: 'Di chuyển' },
+  // Mua sắm
+  { keywords: ['mua', 'shop', 'sách', 'quần áo', 'giày', 'túi', 'đồ', 'order', 'ship', 'giao hàng', 'lazada', 'shopee', 'tiki'], category: 'Mua sắm' },
+  // Giải trí
+  { keywords: ['phim', 'game', 'netflix', 'spotify', 'youtube', 'nhạc', 'kịch', 'hát', 'bar', 'beer', 'bida', 'billards', 'bowling', 'trò chơi', 'giải trí', 'entertainment'], category: 'Giải trí' },
+  // Sức khỏe
+  { keywords: ['thuốc', 'bệnh', 'khám', 'bs', 'bác sĩ', 'viện', 'y tế', 'dược', 'vitamin', 'thể dục', 'gym', 'fitness', 'spa', 'massage', 'sức khỏe', 'health'], category: 'Sức khỏe' },
+  // Nhà ở
+  { keywords: ['nhà', 'thuê', 'điện', 'nước', 'internet', 'wifi', 'rent', 'home', 'house', 'utility', ' коммунал'], category: 'Nhà ở' },
+  // Làm đẹp
+  { keywords: ['tóc', 'salon', 'làm đẹp', 'makeup', 'son', 'kem', 'skincare', 'cosmetic'], category: 'Làm đẹp' },
+  // Học tập
+  { keywords: ['học', 'khóa', 'course', 'sách', 'tài liệu', 'school', 'university', 'study', 'edu'], category: 'Học tập' },
+  // Thiện nguyện
+  { keywords: ['từ thiện', 'donate', 'quyên góp', ' charity', ' donation'], category: 'Thiện nguyện' },
+]
+
+function guessCategory(note, explicitCategory) {
+  if (explicitCategory && explicitCategory !== 'Khác') return explicitCategory
+  if (!note) return 'Khác'
+  const lower = note.toLowerCase()
+  for (const entry of CATEGORY_MAP) {
+    if (entry.keywords.some(k => lower.includes(k))) {
+      return entry.category
+    }
+  }
+  return 'Khác'
+}
+
 function createServerClient() {
   const url = process.env.VITE_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -262,8 +296,6 @@ const create_transaction = {
     if (isNaN(amount) || amount <= 0) {
       return { success: false, error: `Số tiền không hợp lệ: "${args.amount}"` }
     }
-    // If amount looks like it was parsed as thousands-only (e.g. 200 for "200k"),
-    // detect and correct: if amount < 1000 and user likely used k/M suffix
     const rawStr = String(args.amount).toLowerCase()
     if (rawStr.includes('k')) {
       amount = amount * 1000
@@ -290,6 +322,15 @@ const create_transaction = {
       .single()
 
     if (error) return { success: false, error: error.message }
+
+    // Auto-correct category: "Khác" + note "ăn trưa" → "Ăn uống"
+    if (data.category === 'Khác') {
+      const guessed = guessCategory(data.note, null)
+      if (guessed !== 'Khác') {
+        await supabase.from('transactions').update({ category: guessed }).eq('id', data.id)
+        data.category = guessed
+      }
+    }
 
     const emoji = args.type === 'income' ? '📈' : '📉'
     const walletName = walletData?.name ?? '(ví đã chọn)'
