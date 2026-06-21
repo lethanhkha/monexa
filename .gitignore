@@ -39,8 +39,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# TypeScript cache
+# TypeScript cache / build
 *.tsbuildinfo
+dist-node/
 
 # Vite
 .vite/
