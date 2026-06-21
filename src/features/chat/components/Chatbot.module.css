@@ -162,6 +162,87 @@
   opacity: 0.85;
 }
 
+/* Wallet Picker */
+.walletPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--primary);
+  border-radius: 16px 16px 16px 4px;
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.15);
+  min-width: 220px;
+}
+
+.walletPickerHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.walletPickerHeader strong {
+  color: var(--text-primary);
+}
+
+.walletPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.walletPickerBtn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--background);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  text-align: left;
+  font-family: var(--font-body);
+}
+
+.walletPickerBtn:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.walletPickerName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.walletPickerBalance {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.walletPickerCancel {
+  align-self: flex-end;
+  padding: 4px 10px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: color 150ms;
+}
+
+.walletPickerCancel:hover {
+  color: var(--error);
+}
+
 /* Inline code */
 .inlineCode {
   background: var(--neutral-light);

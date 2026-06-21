@@ -33,6 +33,18 @@ const supabase = createClient(
   process.env.VITE_SUPABASE_ANON_KEY,
 )
 
+// ── Helper: Save chat message pair ────────────────────────────────────────────
+async function saveChat(userId, userMsg, assistantMsg) {
+  try {
+    await supabase.from('chat_history').insert([
+      { user_id: userId, role: 'user', content: userMsg },
+      { user_id: userId, role: 'assistant', content: assistantMsg },
+    ])
+  } catch (err) {
+    console.warn('⚠️  saveChat failed:', err?.message)
+  }
+}
+
 // ── Groq Client ────────────────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: process.env.VITE_GROQ_API_KEY })
 console.log('✅ Groq API key loaded:', process.env.VITE_GROQ_API_KEY.slice(0, 8) + '...')
@@ -185,6 +197,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Step 3: If tools were called, add results + final response
+    let needsWalletPicker = false
     if (toolCalls.length > 0) {
       // Add assistant's tool call message
       groqMessages.push(assistantMsg)
@@ -193,6 +206,10 @@ app.post('/api/chat', async (req, res) => {
       for (const call of toolCalls) {
         const name = call.function?.name ?? ''
         const result = toolResults[name]
+        // If user didn't specify wallet and AI called get_wallets → trigger wallet picker
+        if (name === 'get_wallets' && result?.success && result?.data?.length === 0) {
+          needsWalletPicker = true
+        }
         groqMessages.push({
           role: 'tool',
           tool_call_id: call.id,
@@ -200,17 +217,42 @@ app.post('/api/chat', async (req, res) => {
         })
       }
 
-      // Step 4: Final Groq call — produce natural language response
-      response = await groq.chat.completions.create({
+      // If no wallets exist yet → send wallet list to frontend then ask AI to suggest creating one
+      const walletsResult = toolResults['get_wallets']
+      if (walletsResult?.success && (walletsResult.data?.length ?? 0) > 0) {
+        // Send wallet list to frontend BEFORE the stream starts
+        res.setHeader('Content-Type', 'text/event-stream')
+        res.setHeader('Cache-Control', 'no-cache')
+        res.setHeader('Connection', 'keep-alive')
+        res.flushHeaders()
+        res.write(`data: ${JSON.stringify({ wallets: walletsResult.data })}\n\n`)
+      } else {
+        // No wallets at all → set headers, send empty list
+        res.setHeader('Content-Type', 'text/event-stream')
+        res.setHeader('Cache-Control', 'no-cache')
+        res.setHeader('Connection', 'keep-alive')
+        res.flushHeaders()
+        res.write(`data: ${JSON.stringify({ wallets: [] })}\n\n`)
+      }
+
+      // Step 4: Final Groq call — produce natural language response (non-streaming, so we control the output)
+      const finalResponse = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages: groqMessages,
         temperature: 0.7,
         max_tokens: 1024,
-        stream: true,
       })
+      const fullContent = finalResponse.choices[0]?.message?.content || ''
+      res.write(`data: ${JSON.stringify({ delta: fullContent })}\n\n`)
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
+      res.end()
+
+      // Save to chat history (async, non-blocking)
+      saveChat(user_id, message, fullContent).catch(() => {})
+      return
     }
 
-    // Stream the response
+    // Step: No tool calls — stream directly (non-tool flow)
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-cache')
     res.setHeader('Connection', 'keep-alive')
@@ -226,18 +268,11 @@ app.post('/api/chat', async (req, res) => {
       }
     }
 
-    // Save to Supabase chat history
-    try {
-      await supabase.from('chat_history').insert([
-        { user_id, role: 'user', content: message },
-        { user_id, role: 'assistant', content: fullContent },
-      ])
-    } catch (dbErr) {
-      console.warn('⚠️  Failed to save chat history:', dbErr)
-    }
-
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`)
     res.end()
+
+    // Save to chat history (async, non-blocking)
+    saveChat(user_id, message, fullContent).catch(() => {})
   } catch (err) {
     console.error('❌ Groq error:', err?.message || err)
     if (!res.headersSent) {
